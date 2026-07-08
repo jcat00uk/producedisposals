@@ -192,6 +192,9 @@ main { padding: 14px; max-width: 640px; margin: 0 auto; }
   padding: 8px 10px;
   cursor: pointer;
   min-height: 108px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .product-card::before {

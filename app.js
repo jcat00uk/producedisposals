@@ -7,642 +7,640 @@ const BASE_DATA = {
   ],
   "categories": [
     {
-      "name": "Apples & Pears",
+      "name": "Potatoes (892)",
+      "aisle": "Veg"
+    },
+    {
+      "name": "Aubergine & Squash (880)",
+      "aisle": "Veg"
+    },
+    {
+      "name": "Melons & Pineapples (850)",
       "aisle": "Fruit"
     },
     {
-      "name": "Aubergine & Squash",
-      "aisle": "Veg"
-    },
-    {
-      "name": "Avocados",
-      "aisle": "Veg"
-    },
-    {
-      "name": "Bananas",
+      "name": "Apples and Pears (884)(913)",
       "aisle": "Fruit"
     },
     {
-      "name": "Broccoli, Cauliflower & Brassicas",
+      "name": "Brassicas (895)",
       "aisle": "Veg"
     },
     {
-      "name": "Cabbage",
+      "name": "Root Vegetables (894)",
       "aisle": "Veg"
     },
     {
-      "name": "Citrus",
-      "aisle": "Fruit"
-    },
-    {
-      "name": "Corn & Sweetcorn",
+      "name": "World Foods (882)",
       "aisle": "Veg"
     },
     {
-      "name": "Cucumber & Celery",
+      "name": "Cucumbers & Peppers (880)",
       "aisle": "Salad"
     },
     {
-      "name": "Kiwi",
+      "name": "Mushrooms (891)",
+      "aisle": "Veg"
+    },
+    {
+      "name": "Exotic Fruit (886)",
       "aisle": "Fruit"
     },
     {
-      "name": "Lettuce",
-      "aisle": "Salad"
-    },
-    {
-      "name": "Melons",
+      "name": "Citrus Fruit (887)",
       "aisle": "Fruit"
     },
     {
-      "name": "Mushrooms",
-      "aisle": "Veg"
-    },
-    {
-      "name": "Onions, Garlic & Ginger",
-      "aisle": "Veg"
-    },
-    {
-      "name": "Peppers",
-      "aisle": "Veg"
-    },
-    {
-      "name": "Potatoes & Sweet Potatoes",
-      "aisle": "Veg"
-    },
-    {
-      "name": "Root Vegetables",
-      "aisle": "Veg"
-    },
-    {
-      "name": "Spring Onions",
-      "aisle": "Salad"
-    },
-    {
-      "name": "Tomatoes",
-      "aisle": "Salad"
-    },
-    {
-      "name": "Tropical & Exotic Fruit",
+      "name": "Bananas (888)",
       "aisle": "Fruit"
     },
     {
-      "name": "World & Speciality Veg",
+      "name": "Cooks Ingredients (873)",
+      "aisle": "Salad"
+    },
+    {
+      "name": "Stone Fruit (883)",
+      "aisle": "Fruit"
+    },
+    {
+      "name": "Avocados (877)",
+      "aisle": "Salad"
+    },
+    {
+      "name": "Onions (654)",
       "aisle": "Veg"
+    },
+    {
+      "name": "Salads (893)",
+      "aisle": "Salad"
+    },
+    {
+      "name": "Chilled Peas & Beans (849)",
+      "aisle": "Veg"
+    },
+    {
+      "name": "Tomatoes (881)",
+      "aisle": "Salad"
     }
   ],
   "products": [
     {
       "id": "p001",
       "name": "AB Jersey New Potatoes Loose",
-      "category": "Potatoes & Sweet Potatoes",
+      "category": "Potatoes (892)",
       "sku": "1198850"
     },
     {
       "id": "p002",
       "name": "JS Aubergine Single",
-      "category": "Aubergine & Squash",
+      "category": "Aubergine & Squash (880)",
       "sku": "6026956"
     },
     {
       "id": "p003",
       "name": "JS Baby Watermelon",
-      "category": "Melons",
+      "category": "Melons & Pineapples (850)",
       "sku": "6411148"
     },
     {
       "id": "p004",
       "name": "JS Baking Potatoes Loose",
-      "category": "Potatoes & Sweet Potatoes",
+      "category": "Potatoes (892)",
       "sku": "1193961"
     },
     {
       "id": "p005",
       "name": "JS Braeburn Apple Single",
-      "category": "Apples & Pears",
+      "category": "Apples and Pears (884)(913)",
       "sku": "6617773"
     },
     {
       "id": "p006",
       "name": "JS Bramley Apples Loose",
-      "category": "Apples & Pears",
+      "category": "Apples and Pears (884)(913)",
       "sku": "1191851"
     },
     {
       "id": "p007",
       "name": "JS Broccoli Loose",
-      "category": "Broccoli, Cauliflower & Brassicas",
+      "category": "Brassicas (895)",
       "sku": "1192001"
     },
     {
       "id": "p008",
       "name": "JS Brussels Sprouts Loose",
-      "category": "Broccoli, Cauliflower & Brassicas",
+      "category": "Brassicas (895)",
       "sku": "1197105"
     },
     {
       "id": "p009",
       "name": "JS Butternut Squash Loose",
-      "category": "Aubergine & Squash",
+      "category": "Aubergine & Squash (880)",
       "sku": "1197303"
     },
     {
       "id": "p010",
       "name": "JS Cantaloupe Melon",
-      "category": "Melons",
+      "category": "Melons & Pineapples (850)",
       "sku": "5494"
     },
     {
       "id": "p011",
       "name": "JS Carrots Loose",
-      "category": "Root Vegetables",
+      "category": "Root Vegetables (894)",
       "sku": "1192049"
     },
     {
       "id": "p012",
       "name": "JS Cassava Loose",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "7680910"
     },
     {
       "id": "p013",
       "name": "JS Cauliflower Single",
-      "category": "Broccoli, Cauliflower & Brassicas",
+      "category": "Brassicas (895)",
       "sku": "758"
     },
     {
       "id": "p014",
       "name": "JS Celeriac",
-      "category": "Root Vegetables",
+      "category": "Root Vegetables (894)",
       "sku": "8200621"
     },
     {
       "id": "p015",
       "name": "JS Celery",
-      "category": "Cucumber & Celery",
+      "category": "Salads (893)",
       "sku": "805353"
     },
     {
       "id": "p016",
       "name": "JS Chayote Loose",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "8144874"
     },
     {
       "id": "p017",
       "name": "JS Closed Cup White Mushrooms Loose",
-      "category": "Mushrooms",
+      "category": "Mushrooms (891)",
       "sku": "1192070"
     },
     {
       "id": "p018",
       "name": "JS Coconut Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "475020"
     },
     {
       "id": "p019",
       "name": "JS Conference Pear Single",
-      "category": "Apples & Pears",
+      "category": "Apples and Pears (884)(913)",
       "sku": "6620654"
     },
     {
       "id": "p020",
       "name": "JS Courgettes Loose",
-      "category": "Aubergine & Squash",
+      "category": "Aubergine & Squash (880)",
       "sku": "1192056"
     },
     {
       "id": "p021",
       "name": "JS Cox Apple Single",
-      "category": "Apples & Pears",
+      "category": "Apples and Pears (884)(913)",
       "sku": "7983670"
     },
     {
       "id": "p022",
       "name": "JS Dudhi Loose",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "8144878"
     },
     {
       "id": "p023",
       "name": "JS Easy Peeler Single",
-      "category": "Citrus",
+      "category": "Citrus Fruit (887)",
       "sku": "7555804"
-    },
-    {
-      "id": "p024",
-      "name": "JS Fairtrade Banana Single (C)",
-      "category": "Bananas",
-      "sku": null
     },
     {
       "id": "p025",
       "name": "JS Fairtrade Bananas Loose",
-      "category": "Bananas",
+      "category": "Bananas (888)",
       "sku": "1196757"
     },
     {
       "id": "p026",
       "name": "JS Fennel Loose",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "1197211"
     },
     {
       "id": "p027",
       "name": "JS Galia Melon",
-      "category": "Melons",
+      "category": "Melons & Pineapples (850)",
       "sku": "3476"
     },
     {
       "id": "p028",
       "name": "JS Garlic Single",
-      "category": "Onions, Garlic & Ginger",
+      "category": "Cooks Ingredients (873)",
       "sku": "529525"
     },
     {
       "id": "p029",
       "name": "JS Giant Mango Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "7971225"
     },
     {
       "id": "p030",
       "name": "JS Giant Pomegranate Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "8206688"
     },
     {
       "id": "p031",
       "name": "JS Ginger Loose",
-      "category": "Onions, Garlic & Ginger",
+      "category": "Cooks Ingredients (873)",
       "sku": "1198621"
     },
     {
       "id": "p032",
       "name": "JS Granny Smith Apple Single",
-      "category": "Apples & Pears",
+      "category": "Apples and Pears (884)(913)",
       "sku": "7533845"
     },
     {
       "id": "p033",
       "name": "JS Green Pepper Single",
-      "category": "Peppers",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "1236620"
     },
     {
       "id": "p034",
       "name": "JS Honeydew Melon",
-      "category": "Melons",
+      "category": "Melons & Pineapples (850)",
       "sku": "7559"
     },
     {
       "id": "p035",
       "name": "JS Horseradish Loose",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "7076090"
     },
     {
       "id": "p036",
       "name": "JS Iceberg Lettuce",
-      "category": "Lettuce",
+      "category": "Salads (893)",
       "sku": "714310"
     },
     {
       "id": "p037",
       "name": "JS Kohlrabi Single",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "8195416"
     },
     {
       "id": "p038",
       "name": "JS Large Cucumber",
-      "category": "Cucumber & Celery",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "680646"
     },
     {
       "id": "p039",
       "name": "JS Large Kiwi Fruit",
-      "category": "Kiwi",
+      "category": "Stone Fruit (883)",
       "sku": "24"
     },
     {
       "id": "p040",
       "name": "JS Large Pineapple",
-      "category": "Apples & Pears",
+      "category": "Melons & Pineapples (850)",
       "sku": "807722"
     },
     {
       "id": "p041",
       "name": "JS Large R&R Avocado",
-      "category": "Avocados",
+      "category": "Avocados (877)",
       "sku": "302630"
     },
     {
       "id": "p042",
       "name": "JS Leeks Loose",
-      "category": "Root Vegetables",
+      "category": "Root Vegetables (894)",
       "sku": "1193954"
     },
     {
       "id": "p043",
       "name": "JS Lemons Single",
-      "category": "Citrus",
+      "category": "Citrus Fruit (887)",
       "sku": "93"
     },
     {
       "id": "p044",
       "name": "JS Limes Single",
-      "category": "Citrus",
+      "category": "Citrus Fruit (887)",
       "sku": "209762"
     },
     {
       "id": "p045",
       "name": "JS Mango Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "336734"
     },
     {
       "id": "p046",
       "name": "JS Medium R&R Avocado",
-      "category": "Avocados",
+      "category": "Avocados (877)",
       "sku": "7658"
     },
     {
       "id": "p047",
       "name": "JS Mooli Loose",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "1331738"
     },
     {
       "id": "p048",
       "name": "JS Onions Loose",
-      "category": "Onions, Garlic & Ginger",
+      "category": "Onions (654)",
       "sku": "1192094"
     },
     {
       "id": "p049",
       "name": "JS Orange Pepper Single",
-      "category": "Citrus",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "1236637"
     },
     {
       "id": "p050",
       "name": "JS Oranges Single",
-      "category": "Citrus",
+      "category": "Citrus Fruit (887)",
       "sku": "79"
     },
     {
       "id": "p051",
       "name": "JS Organic Cucumber",
-      "category": "Cucumber & Celery",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "1050110"
     },
     {
       "id": "p052",
       "name": "JS Papaya Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "478755"
     },
     {
       "id": "p053",
       "name": "JS Parsnips Loose",
-      "category": "Root Vegetables",
+      "category": "Root Vegetables (894)",
       "sku": "1197099"
     },
     {
       "id": "p054",
       "name": "JS Passion Fruit Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "8142103"
     },
     {
       "id": "p055",
       "name": "JS Persimmon Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "8142109"
     },
     {
       "id": "p056",
       "name": "JS Pineapple Single",
-      "category": "Apples & Pears",
+      "category": "Melons & Pineapples (850)",
       "sku": "8176887"
     },
     {
       "id": "p057",
       "name": "JS Pink Lady Apple Single",
-      "category": "Apples & Pears",
+      "category": "Apples and Pears (884)(913)",
       "sku": "6617988"
     },
     {
       "id": "p058",
       "name": "JS Plantain Loose",
-      "category": "World & Speciality Veg",
+      "category": "World Foods (882)",
       "sku": "8144869"
     },
     {
       "id": "p059",
       "name": "JS Pomegranate Single",
-      "category": "Tropical & Exotic Fruit",
+      "category": "Exotic Fruit (886)",
       "sku": "217743"
     },
     {
       "id": "p060",
       "name": "JS Red Cabbage each",
-      "category": "Cabbage",
+      "category": "Brassicas (895)",
       "sku": "8091687"
     },
     {
       "id": "p061",
       "name": "JS Red Grapefruit Single",
-      "category": "Citrus",
+      "category": "Citrus Fruit (887)",
       "sku": "466691"
     },
     {
       "id": "p062",
       "name": "JS Red Onions Loose",
-      "category": "Onions, Garlic & Ginger",
+      "category": "Onions (654)",
       "sku": "1195477"
     },
     {
       "id": "p063",
       "name": "JS Red Pepper Single",
-      "category": "Peppers",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "1236644"
     },
     {
       "id": "p064",
       "name": "JS Round Lettuce",
-      "category": "Lettuce",
+      "category": "Salads (893)",
       "sku": "444"
     },
     {
       "id": "p065",
       "name": "JS Royal Gala Apple Single",
-      "category": "Apples & Pears",
+      "category": "Apples and Pears (884)(913)",
       "sku": "6617755"
     },
     {
       "id": "p066",
       "name": "JS Savoy Cabbage",
-      "category": "Cabbage",
+      "category": "Brassicas (895)",
       "sku": "311762"
     },
     {
       "id": "p067",
       "name": "JS Small Whole Cucumber",
-      "category": "Cucumber & Celery",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "8121264"
     },
     {
       "id": "p068",
       "name": "JS Spring Onions Bunch",
-      "category": "Spring Onions",
+      "category": "Salads (893)",
       "sku": "1373"
     },
     {
       "id": "p069",
       "name": "JS Swede Single",
-      "category": "Root Vegetables",
+      "category": "Root Vegetables (894)",
       "sku": "7572548"
     },
     {
       "id": "p070",
       "name": "JS Sweet Potatoes Loose",
-      "category": "Potatoes & Sweet Potatoes",
+      "category": "Potatoes (892)",
       "sku": "8232096"
     },
     {
       "id": "p071",
       "name": "JS Sweetcorn Cob Single",
-      "category": "Corn & Sweetcorn",
+      "category": "Chilled Peas & Beans (849)",
       "sku": "2899"
     },
     {
       "id": "p072",
       "name": "JS Sweetheart Cabbage",
-      "category": "Cabbage",
+      "category": "Brassicas (895)",
       "sku": "385190"
     },
     {
       "id": "p073",
       "name": "JS Tomatoes Loose",
-      "category": "Tomatoes",
+      "category": "Tomatoes (881)",
       "sku": "1192131"
     },
     {
       "id": "p074",
       "name": "JS Watermelon",
-      "category": "Melons",
+      "category": "Melons & Pineapples (850)",
       "sku": "209632"
     },
     {
       "id": "p075",
       "name": "JS White Cabbage each",
-      "category": "Cabbage",
+      "category": "Brassicas (895)",
       "sku": "8091877"
     },
     {
       "id": "p076",
       "name": "JS White Grapefruit Single",
-      "category": "Citrus",
+      "category": "Citrus Fruit (887)",
       "sku": "86"
     },
     {
       "id": "p077",
       "name": "JS White Turnips Loose",
-      "category": "Root Vegetables",
+      "category": "Root Vegetables (894)",
       "sku": "1197471"
     },
     {
       "id": "p078",
       "name": "JS Whole Cucumber",
-      "category": "Cucumber & Celery",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "62"
     },
     {
       "id": "p079",
       "name": "JS Yellow Pepper Single",
-      "category": "Peppers",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "1236651"
-    },
-    {
-      "id": "p080",
-      "name": "Js Brown Onion Single (C)",
-      "category": "Onions, Garlic & Ginger",
-      "sku": null
-    },
-    {
-      "id": "p081",
-      "name": "Js Butternut Squash (C)",
-      "category": "Aubergine & Squash",
-      "sku": null
-    },
-    {
-      "id": "p082",
-      "name": "Js Red Onion Single (C)",
-      "category": "Onions, Garlic & Ginger",
-      "sku": null
-    },
-    {
-      "id": "p083",
-      "name": "Js Ripe & Ready Single Mango",
-      "category": "Tropical & Exotic Fruit",
-      "sku": null
     },
     {
       "id": "p084",
       "name": "SO Butternut Squash Loose",
-      "category": "Aubergine & Squash",
+      "category": "Aubergine & Squash (880)",
       "sku": "1247480"
     },
     {
       "id": "p085",
       "name": "SO Spring Onions Bunch",
-      "category": "Spring Onions",
+      "category": "Salads (893)",
       "sku": "1136463"
     },
     {
       "id": "p086",
       "name": "TTD Beef Tomato Single",
-      "category": "Tomatoes",
+      "category": "Tomatoes (881)",
       "sku": "8087610"
     },
     {
       "id": "p087",
       "name": "TTD Limelon",
-      "category": "Citrus",
+      "category": "Melons & Pineapples (850)",
       "sku": "8076826"
     },
     {
       "id": "p088",
       "name": "TTD Orange Candy Melon",
-      "category": "Citrus",
+      "category": "Melons & Pineapples (850)",
       "sku": "8196517"
     },
     {
       "id": "p089",
       "name": "TTD Piel de Sap Melon",
-      "category": "Melons",
+      "category": "Melons & Pineapples (850)",
       "sku": "220859"
     },
     {
       "id": "p090",
       "name": "TTD Pineapple Single",
-      "category": "Apples & Pears",
+      "category": "Melons & Pineapples (850)",
       "sku": "8230125"
     },
     {
       "id": "p091",
       "name": "TTD Red Sweet Pointed Pepper",
-      "category": "Peppers",
+      "category": "Cucumbers & Peppers (880)",
       "sku": "6643594"
     },
     {
       "id": "p092",
       "name": "TTD Snowball Melon",
-      "category": "Melons",
+      "category": "Melons & Pineapples (850)",
       "sku": "7970705"
+    },
+    {
+      "id": "p093",
+      "name": "JS large single garlic",
+      "category": "Cooks Ingredients (873)",
+      "sku": "7638097"
+    },
+    {
+      "id": "p094",
+      "name": "Pink Grapefruit",
+      "category": "Citrus Fruit (887)",
+      "sku": "5104"
+    },
+    {
+      "id": "p095",
+      "name": "JS Nectarine Single",
+      "category": "Stone Fruit (883)",
+      "sku": "1458"
+    },
+    {
+      "id": "p096",
+      "name": "JS Extra Large Ripe & Ready Avocado",
+      "category": "Avocados (877)",
+      "sku": "8223476"
+    },
+    {
+      "id": "p097",
+      "name": "TTD Red Spring Onions",
+      "category": "Salads (893)",
+      "sku": "7932100"
+    },
+    {
+      "id": "p098",
+      "name": "JS Large Spring Onions Bunch",
+      "category": "Salads (893)",
+      "sku": "628297"
     }
   ]
 };
@@ -977,6 +975,7 @@ function armScanLock(card, point) {
   cancelScanLockPress();
   scanLockPressStart = { x: point.clientX, y: point.clientY };
   scanLockTimer = setTimeout(() => {
+    clearScanLock(); // release whichever card was previously locked, if any
     scanLockCard = card;
     card.classList.add('scan-lock-target');
     els.productList.classList.add('qr-locked');
