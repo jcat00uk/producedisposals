@@ -13,16 +13,12 @@
 <body>
 
 <header class="topbar">
-  <div class="topbar-row">
-    <h1 class="brand">Crate<span>Log</span></h1>
-    <div class="topbar-right">
-      <span id="dataBadge" class="data-badge" title="">●</span>
-      <button id="adminToggle" class="icon-btn" title="Admin mode" aria-label="Admin mode">⚙</button>
-    </div>
-  </div>
   <div class="search-row">
     <input id="searchInput" type="search" placeholder="Search produce…" autocomplete="off">
     <button id="filterToggle" class="filter-btn" aria-expanded="false">Filters</button>
+    <button id="favToggle" class="icon-btn fav-toggle" aria-pressed="false" title="Show favourites only"><span id="favStar">☆</span><span id="favCount" class="fav-count"></span></button>
+    <span id="dataBadge" class="data-badge" title="">●</span>
+    <button id="adminToggle" class="icon-btn" title="Admin mode" aria-label="Admin mode">⚙</button>
   </div>
   <nav class="aisle-tabs" id="aisleTabs"></nav>
   <div class="filter-panel" id="filterPanel" hidden>
@@ -37,8 +33,6 @@
         <option value="az">A–Z</option>
       </select>
     </div>
-    <label class="chip"><input type="checkbox" id="favOnly"> ⭐ Favourites</label>
-    <label class="chip"><input type="checkbox" id="unsortedOnly"> Needs SKU</label>
   </div>
 </header>
 

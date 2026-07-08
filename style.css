@@ -61,25 +61,6 @@ select option {
   padding: 12px 14px 0;
 }
 
-.topbar-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.brand {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 22px;
-  letter-spacing: 0.5px;
-  margin: 0;
-  text-transform: uppercase;
-}
-.brand span { color: var(--veg); }
-
-.topbar-right { display: flex; align-items: center; gap: 8px; }
-
 .data-badge {
   font-size: 10px;
   color: var(--text-muted);
@@ -100,14 +81,28 @@ select option {
 }
 .icon-btn.active { border-color: var(--veg); color: var(--veg); }
 
+.fav-toggle {
+  width: auto;
+  min-width: 38px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 15px;
+}
+.fav-count { font-size: 11px; }
+
 .search-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
 
 #searchInput {
   flex: 1;
+  min-width: 0;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -165,19 +160,6 @@ select option {
 
 .filter-group { display: flex; align-items: center; gap: 8px; }
 
-.chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  background: var(--panel-raised);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 /* ---------- Content ---------- */
 
 main { padding: 14px; max-width: 640px; margin: 0 auto; }
@@ -209,7 +191,7 @@ main { padding: 14px; max-width: 640px; margin: 0 auto; }
   border-radius: var(--radius);
   padding: 8px 10px;
   cursor: pointer;
-  min-height: 84px;
+  min-height: 108px;
 }
 
 .product-card::before {
@@ -280,26 +262,40 @@ main { padding: 14px; max-width: 640px; margin: 0 auto; }
 .card-sku:active { color: var(--veg); border-color: var(--veg); }
 
 .card-qr {
-  width: 54px;
-  height: 54px;
+  width: 92px;
+  height: 92px;
   background: #fff;
-  border-radius: 6px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  padding: 6px;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  transition: opacity 0.15s ease, filter 0.15s ease;
 }
 .card-qr img, .card-qr canvas { width: 100%; height: 100%; }
 .card-needs-sku {
   font-size: 11px;
   color: var(--text-muted);
   text-align: center;
-  width: 54px;
+  width: 92px;
   border: 1px dashed var(--line);
   border-radius: 6px;
   padding: 4px;
   line-height: 1.2;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+/* Scan lock: hold a card's QR to dim/blur every other card's QR so a
+   handheld scanner can't pick up the wrong one by accident. Tap
+   anywhere to release. */
+#productList.qr-locked .product-card:not(.scan-lock-target) .card-qr,
+#productList.qr-locked .product-card:not(.scan-lock-target) .card-needs-sku {
+  opacity: 0.15;
+  filter: blur(4px);
+}
+.product-card.scan-lock-target .card-qr {
+  box-shadow: 0 0 0 2px var(--veg);
 }
 
 .star-btn {

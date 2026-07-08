@@ -758,7 +758,6 @@ let state = {
   search: '',
   sort: 'category',
   favOnly: false,
-  unsortedOnly: false,
   adminMode: false,
 };
 
@@ -772,8 +771,9 @@ const els = {
   filterPanel: document.getElementById('filterPanel'),
   categorySelect: document.getElementById('categorySelect'),
   sortSelect: document.getElementById('sortSelect'),
-  favOnly: document.getElementById('favOnly'),
-  unsortedOnly: document.getElementById('unsortedOnly'),
+  favToggle: document.getElementById('favToggle'),
+  favStar: document.getElementById('favStar'),
+  favCount: document.getElementById('favCount'),
   productList: document.getElementById('productList'),
   emptyState: document.getElementById('emptyState'),
   adminToggle: document.getElementById('adminToggle'),
@@ -899,7 +899,6 @@ function matches(p) {
   if (state.aisle !== 'All' && p.aisle !== state.aisle) return false;
   if (state.category && p.category !== state.category) return false;
   if (state.favOnly && !p.favourite) return false;
-  if (state.unsortedOnly && p.sku) return false;
   if (state.search) {
     const q = state.search.toLowerCase();
     if (!p.name.toLowerCase().includes(q)) return false;
@@ -920,10 +919,20 @@ function sortProducts(list) {
 function render() {
   renderDataBadge();
   refreshCategoryOptions();
+  renderFavToggle();
   renderList();
 }
 
+function renderFavToggle() {
+  const count = DATA.products.filter(p => favourites[p.id]).length;
+  els.favToggle.classList.toggle('active', state.favOnly);
+  els.favToggle.setAttribute('aria-pressed', String(state.favOnly));
+  els.favStar.textContent = state.favOnly ? '★' : '☆';
+  els.favCount.textContent = ` (${count})`;
+}
+
 function renderList() {
+  clearScanLock();
   const all = getProducts();
   const filtered = sortProducts(all.filter(matches));
 
@@ -947,6 +956,74 @@ function renderList() {
     filtered.forEach(p => els.productList.appendChild(buildCard(p)));
   }
 }
+
+/* ---------------- Scan lock (long-press a QR to dim/blur the rest) ---------------- */
+
+const SCAN_LOCK_MS = 500;
+const SCAN_LOCK_MOVE_CANCEL_PX = 10;
+
+let scanLockCard = null;
+let scanLockTimer = null;
+let scanLockPressStart = null;
+let scanLockSuppressNextClick = false;
+
+function clearScanLock() {
+  if (scanLockCard) scanLockCard.classList.remove('scan-lock-target');
+  els.productList.classList.remove('qr-locked');
+  scanLockCard = null;
+}
+
+function armScanLock(card, point) {
+  cancelScanLockPress();
+  scanLockPressStart = { x: point.clientX, y: point.clientY };
+  scanLockTimer = setTimeout(() => {
+    scanLockCard = card;
+    card.classList.add('scan-lock-target');
+    els.productList.classList.add('qr-locked');
+    scanLockSuppressNextClick = true;
+    scanLockTimer = null;
+  }, SCAN_LOCK_MS);
+}
+function cancelScanLockPress() {
+  clearTimeout(scanLockTimer);
+  scanLockTimer = null;
+  scanLockPressStart = null;
+}
+
+function attachScanLock(card) {
+  card.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    armScanLock(card, e);
+  });
+  card.addEventListener('pointermove', (e) => {
+    if (!scanLockTimer || !scanLockPressStart) return;
+    const dx = e.clientX - scanLockPressStart.x;
+    const dy = e.clientY - scanLockPressStart.y;
+    if (Math.hypot(dx, dy) > SCAN_LOCK_MOVE_CANCEL_PX) cancelScanLockPress();
+  });
+  card.addEventListener('pointerup', cancelScanLockPress);
+  card.addEventListener('pointerleave', cancelScanLockPress);
+  card.addEventListener('pointercancel', cancelScanLockPress);
+}
+
+// runs before any card's own click handler (capture phase): while scan
+// lock is active, every tap just releases it rather than doing its
+// normal thing (open the modal, copy the SKU, etc.)
+document.addEventListener('click', (e) => {
+  if (scanLockSuppressNextClick) {
+    // this is the release-click of the long-press gesture that just
+    // armed the lock — swallow it without touching the lock we just set
+    scanLockSuppressNextClick = false;
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+  if (scanLockCard) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearScanLock();
+  }
+}, true);
 
 function buildCard(p) {
   const card = document.createElement('div');
@@ -986,7 +1063,8 @@ function buildCard(p) {
     qrWrap.className = 'card-qr';
     card.appendChild(qrWrap);
     // eslint-disable-next-line no-undef
-    new QRCode(qrWrap, { text: p.sku, width: 46, height: 46, colorDark: '#1B211D', colorLight: '#ffffff' });
+    new QRCode(qrWrap, { text: p.sku, width: 80, height: 80, colorDark: '#1B211D', colorLight: '#ffffff' });
+    attachScanLock(card);
   } else {
     const needsSku = document.createElement('div');
     needsSku.className = 'card-needs-sku';
@@ -1139,8 +1217,11 @@ els.filterToggle.addEventListener('click', () => {
 
 els.categorySelect.addEventListener('change', (e) => { state.category = e.target.value; renderList(); });
 els.sortSelect.addEventListener('change', (e) => { state.sort = e.target.value; renderList(); });
-els.favOnly.addEventListener('change', (e) => { state.favOnly = e.target.checked; renderList(); });
-els.unsortedOnly.addEventListener('change', (e) => { state.unsortedOnly = e.target.checked; renderList(); });
+els.favToggle.addEventListener('click', () => {
+  state.favOnly = !state.favOnly;
+  renderFavToggle();
+  renderList();
+});
 
 els.adminToggle.addEventListener('click', () => {
   state.adminMode = !state.adminMode;
