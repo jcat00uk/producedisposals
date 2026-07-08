@@ -806,10 +806,31 @@ let pendingProductId = null;
 
 let toastTimer = null;
 function showToast(msg) {
+  clearTimeout(toastTimer);
+  els.toast.innerHTML = '';
   els.toast.textContent = msg;
   els.toast.hidden = false;
-  clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { els.toast.hidden = true; }, 1400);
+}
+
+// stays on screen until the action is taken or dismissed, for messages
+// the user needs to actually act on rather than just glance at
+function showActionToast(msg, actionLabel, onAction) {
+  clearTimeout(toastTimer);
+  els.toast.innerHTML = '';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  els.toast.appendChild(span);
+  const actionBtn = document.createElement('button');
+  actionBtn.textContent = actionLabel;
+  actionBtn.addEventListener('click', () => { els.toast.hidden = true; onAction(); });
+  els.toast.appendChild(actionBtn);
+  const dismissBtn = document.createElement('button');
+  dismissBtn.textContent = '✕';
+  dismissBtn.className = 'toast-dismiss';
+  dismissBtn.addEventListener('click', () => { els.toast.hidden = true; });
+  els.toast.appendChild(dismissBtn);
+  els.toast.hidden = false;
 }
 
 /* ---------------- Data badge ---------------- */
@@ -1090,9 +1111,14 @@ function saveAdminEdit() {
   if (!pendingProductId) return;
   const p = DATA.products.find(x => x.id === pendingProductId);
   if (!p) return;
+  const sku = els.adminSku.value.trim() || null;
+  if (sku) {
+    const dupe = DATA.products.find(x => x !== p && x.sku === sku);
+    if (dupe && !confirm(`SKU ${sku} is already used by "${dupe.name}". Save anyway?`)) return;
+  }
   p.category = els.adminCategory.value || '';
   p.fallbackAisle = p.category ? undefined : els.adminFallbackAisle.value;
-  p.sku = els.adminSku.value.trim() || null;
+  p.sku = sku;
   saveData();
   closeAdminEdit();
   render();
@@ -1169,4 +1195,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   state.aisle = DATA.aisles[0] || 'All';
   renderAisleTabs();
   render();
+
+  if (dataSource === 'local' && publishedData && JSON.stringify(DATA) !== JSON.stringify(publishedData)) {
+    showActionToast('A newer data.json is available.', 'Sync now', () => els.syncBtn.click());
+  }
 });

@@ -11,6 +11,7 @@
     --fruit: #C4443A; --veg: #D9A441; --salad: #4F7942;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font-family: 'Inter', system-ui, sans-serif; padding: 20px;
@@ -63,7 +64,9 @@
   tbody tr[data-color="Salad"] { border-left-color: var(--salad); }
   .name-cell { font-weight: 600; }
   .name-cell input { width: 100%; }
+  .sku-cell { display: flex; align-items: center; gap: 4px; }
   .sku-cell input { font-family: 'IBM Plex Mono', monospace; width: 90px; }
+  .sku-dupe-warn { color: var(--fruit); font-size: 13px; cursor: help; }
   .aisle-Fruit { color: var(--fruit); }
   .aisle-Veg { color: var(--veg); }
   .aisle-Salad { color: var(--salad); }
@@ -113,6 +116,13 @@
   .modal label input, .modal label select { width: 100%; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
   .dupe-warning { color: var(--fruit); font-size: 12px; margin: -4px 0 0; }
+
+  .restore-banner {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--panel-raised); border: 1px solid var(--veg);
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 13px;
+  }
+  .restore-banner span { flex: 1; min-width: 200px; }
 </style>
 </head>
 <body>
@@ -133,6 +143,12 @@
   the <strong>same site</strong>, it'll pick these changes up next time it loads (see notes below).
   "Export file" downloads a portable copy for backup or moving to another device/browser.
 </p>
+
+<div class="restore-banner" id="restoreBanner" hidden>
+  <span id="restoreBannerText"></span>
+  <button id="restoreBtn" class="secondary">Load them instead</button>
+  <button id="discardRestoreBtn" class="secondary">Discard</button>
+</div>
 
 <div id="mainArea" hidden>
 
@@ -281,6 +297,10 @@ const els = {
   apDupeWarning: document.getElementById('apDupeWarning'),
   apSave: document.getElementById('apSave'),
   apCancel: document.getElementById('apCancel'),
+  restoreBanner: document.getElementById('restoreBanner'),
+  restoreBannerText: document.getElementById('restoreBannerText'),
+  restoreBtn: document.getElementById('restoreBtn'),
+  discardRestoreBtn: document.getElementById('discardRestoreBtn'),
 };
 
 function loadFromBrowser() {
@@ -637,8 +657,19 @@ function buildRow(p) {
   const skuInput = document.createElement('input');
   skuInput.type = 'text';
   skuInput.value = p.sku || '';
-  skuInput.addEventListener('input', () => { p.sku = skuInput.value.trim() || null; tr.classList.add('row-changed'); });
+  const skuWarn = document.createElement('span');
+  skuWarn.className = 'sku-dupe-warn';
+  skuWarn.textContent = '⚠';
+  skuWarn.hidden = true;
+  function updateSkuWarn() {
+    const dupe = p.sku ? findDuplicateSku(p.sku, p) : null;
+    skuWarn.hidden = !dupe;
+    skuWarn.title = dupe ? `Same SKU as "${dupe.name || '(unnamed)'}"` : '';
+  }
+  skuInput.addEventListener('input', () => { p.sku = skuInput.value.trim() || null; tr.classList.add('row-changed'); updateSkuWarn(); });
+  updateSkuWarn();
   skuTd.appendChild(skuInput);
+  skuTd.appendChild(skuWarn);
   tr.appendChild(skuTd);
 
   const favTd = document.createElement('td');
@@ -731,21 +762,33 @@ function findDuplicateProduct(name) {
   return DATA.products.find(p => (p.name || '').trim().toLowerCase() === low);
 }
 
-els.apName.addEventListener('input', () => {
+function findDuplicateSku(sku, exclude) {
+  const low = sku.trim().toLowerCase();
+  if (!low) return null;
+  return DATA.products.find(p => p !== exclude && (p.sku || '').toLowerCase() === low);
+}
+
+function armApDupeCheck() {
   apDupeArmed = false;
   els.apDupeWarning.hidden = true;
   els.apSave.textContent = 'Add product';
-});
+}
+els.apName.addEventListener('input', armApDupeCheck);
+els.apSku.addEventListener('input', armApDupeCheck);
 
 els.apSave.addEventListener('click', () => {
   const name = els.apName.value.trim();
   if (!name) { alert('Enter a product name.'); return; }
+  const sku = els.apSku.value.trim();
 
-  const dupe = findDuplicateProduct(name);
-  if (dupe && !apDupeArmed) {
+  const nameDupe = findDuplicateProduct(name);
+  const skuDupe = sku ? findDuplicateSku(sku) : null;
+  if ((nameDupe || skuDupe) && !apDupeArmed) {
+    const reasons = [];
+    if (nameDupe) reasons.push(`the name matches "${nameDupe.name}"` + (nameDupe.category ? ` in "${nameDupe.category}"` : ''));
+    if (skuDupe && skuDupe !== nameDupe) reasons.push(`SKU ${sku} matches "${skuDupe.name}"`);
     els.apDupeWarning.hidden = false;
-    els.apDupeWarning.textContent = `A product named "${dupe.name}" already exists` +
-      (dupe.category ? ` in "${dupe.category}"` : '') + `. Click "Add anyway" to add a duplicate.`;
+    els.apDupeWarning.textContent = `Possible duplicate — ${reasons.join(' and ')}. Click "Add anyway" to add it regardless.`;
     els.apSave.textContent = 'Add anyway';
     apDupeArmed = true;
     return;
@@ -781,30 +824,60 @@ els.autoFillBtn.addEventListener('click', () => {
   alert(`Filled ${filled} product(s).` + (unresolved ? ` ${unresolved} had no keyword match — set those manually.` : ''));
 });
 
-// try loading from this browser automatically on open; if nothing's
-// there yet, try the published data.json (works when served over http(s),
-// blocked by browsers when opened as a local file — import manually then)
+// data.json is the source of truth: on open, always try to fetch and show
+// it fresh. If this browser also has unsaved local edits sitting around
+// (from a previous editing session that was never re-exported), don't
+// silently prefer them — surface a banner so the user picks explicitly.
+// Falls back to local edits (or manual import) only when data.json can't
+// be reached at all, e.g. opened as a local file:// page.
+els.restoreBtn.addEventListener('click', () => {
+  const raw = localStorage.getItem(DATA_KEY);
+  if (!raw) return;
+  try {
+    DATA = JSON.parse(raw);
+    els.sourceLabel.textContent = 'Editing: data saved in this browser (restored)';
+    els.restoreBanner.hidden = true;
+    activate();
+  } catch (e) { alert('Could not read saved data: ' + e.message); }
+});
+els.discardRestoreBtn.addEventListener('click', () => {
+  if (!confirm('Discard the unsaved local edits in this browser? This cannot be undone.')) return;
+  localStorage.removeItem(DATA_KEY);
+  els.restoreBanner.hidden = true;
+});
+
 (async function tryAutoLoad() {
   const raw = localStorage.getItem(DATA_KEY);
+  let local = null;
   if (raw) {
-    try {
-      DATA = JSON.parse(raw);
-      els.sourceLabel.textContent = 'Editing: data saved in this browser (auto-loaded)';
-      activate();
-      return;
-    } catch (e) { /* fall through */ }
+    try { local = JSON.parse(raw); } catch (e) { /* corrupt — ignore */ }
   }
+
+  let fetched = null;
   try {
     const res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
     if (res.ok) {
-      const fetched = await res.json();
-      if (fetched && fetched.products && fetched.categories && fetched.aisles) {
-        DATA = fetched;
-        els.sourceLabel.textContent = 'Editing: loaded from data.json';
-        activate();
-      }
+      const parsed = await res.json();
+      if (parsed && parsed.products && parsed.categories && parsed.aisles) fetched = parsed;
     }
-  } catch (e) { /* blocked (likely file://) or missing — user can load/import manually */ }
+  } catch (e) { /* blocked (likely file://) or missing */ }
+
+  if (fetched) {
+    DATA = fetched;
+    els.sourceLabel.textContent = 'Editing: loaded from data.json';
+    activate();
+    if (local && JSON.stringify(local) !== JSON.stringify(fetched)) {
+      els.restoreBannerText.textContent = 'This browser has unsaved local edits that differ from data.json.';
+      els.restoreBanner.hidden = false;
+    }
+    return;
+  }
+
+  if (local) {
+    DATA = local;
+    els.sourceLabel.textContent = 'Editing: data saved in this browser (data.json unreachable)';
+    activate();
+  }
 })();
 
 </script>
