@@ -1188,14 +1188,16 @@ function saveAdminEdit() {
   if (!pendingProductId) return;
   const p = DATA.products.find(x => x.id === pendingProductId);
   if (!p) return;
-  const sku = els.adminSku.value.trim() || null;
-  if (sku) {
+  const sku = els.adminSku.value.trim();
+  if (!sku) { alert('SKU can\'t be blank — every product needs one (it doubles as the product\'s ID).'); return; }
+  if (sku !== p.sku) {
     const dupe = DATA.products.find(x => x !== p && x.sku === sku);
-    if (dupe && !confirm(`SKU ${sku} is already used by "${dupe.name}". Save anyway?`)) return;
+    if (dupe) { alert(`SKU ${sku} is already used by "${dupe.name}". SKUs must be unique — pick a different one.`); return; }
   }
   p.category = els.adminCategory.value || '';
   p.fallbackAisle = p.category ? undefined : els.adminFallbackAisle.value;
   p.sku = sku;
+  p.id = sku;
   saveData();
   closeAdminEdit();
   render();
