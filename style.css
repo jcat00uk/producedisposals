@@ -432,6 +432,7 @@ main { padding: 14px; max-width: 640px; margin: 0 auto; }
   font-weight: 700;
   cursor: pointer;
   font-size: 12px;
+  text-decoration: none;
 }
 
 /* ---------- Toast ---------- */
