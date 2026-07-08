@@ -218,7 +218,7 @@
     <label id="apFallbackWrap">Fallback aisle (no category set)
       <select id="apFallbackAisle"></select>
     </label>
-    <label>SKU<input type="text" id="apSku" placeholder="Optional"></label>
+    <label>SKU (required)<input type="text" id="apSku" placeholder="e.g. 1198850" required></label>
     <p class="dupe-warning" id="apDupeWarning" hidden></p>
     <div class="modal-actions">
       <button id="apCancel" class="secondary">Cancel</button>
@@ -662,11 +662,37 @@ function buildRow(p) {
   skuWarn.textContent = '⚠';
   skuWarn.hidden = true;
   function updateSkuWarn() {
-    const dupe = p.sku ? findDuplicateSku(p.sku, p) : null;
+    const liveSku = skuInput.value.trim();
+    const dupe = liveSku ? findDuplicateSku(liveSku, p) : null;
     skuWarn.hidden = !dupe;
     skuWarn.title = dupe ? `Same SKU as "${dupe.name || '(unnamed)'}"` : '';
   }
-  skuInput.addEventListener('input', () => { p.sku = skuInput.value.trim() || null; tr.classList.add('row-changed'); updateSkuWarn(); });
+  // live typing only updates the warning icon; the actual value (and its
+  // hard validation) only commits once you leave the field, so every
+  // keystroke doesn't fight you mid-edit
+  skuInput.addEventListener('input', updateSkuWarn);
+  skuInput.addEventListener('change', () => {
+    const newSku = skuInput.value.trim();
+    if (!newSku) {
+      alert('SKU can\'t be blank — every product needs one (it doubles as the product\'s ID).');
+      skuInput.value = p.sku || '';
+      updateSkuWarn();
+      return;
+    }
+    if (newSku !== p.sku) {
+      const dupe = findDuplicateSku(newSku, p);
+      if (dupe) {
+        alert(`SKU ${newSku} is already used by "${dupe.name}". SKUs must be unique — pick a different one.`);
+        skuInput.value = p.sku || '';
+        updateSkuWarn();
+        return;
+      }
+      p.sku = newSku;
+      p.id = newSku;
+      tr.classList.add('row-changed');
+    }
+    updateSkuWarn();
+  });
   updateSkuWarn();
   skuTd.appendChild(skuInput);
   skuTd.appendChild(skuWarn);
@@ -780,26 +806,26 @@ els.apSave.addEventListener('click', () => {
   const name = els.apName.value.trim();
   if (!name) { alert('Enter a product name.'); return; }
   const sku = els.apSku.value.trim();
+  if (!sku) { alert('Enter a SKU — every product needs one (it doubles as the product\'s ID, so it can\'t be added without one).'); return; }
+
+  const skuDupe = findDuplicateSku(sku);
+  if (skuDupe) {
+    alert(`SKU ${sku} is already used by "${skuDupe.name}". SKUs must be unique — pick a different one or edit the existing product instead.`);
+    return;
+  }
 
   const nameDupe = findDuplicateProduct(name);
-  const skuDupe = sku ? findDuplicateSku(sku) : null;
-  if ((nameDupe || skuDupe) && !apDupeArmed) {
-    const reasons = [];
-    if (nameDupe) reasons.push(`the name matches "${nameDupe.name}"` + (nameDupe.category ? ` in "${nameDupe.category}"` : ''));
-    if (skuDupe && skuDupe !== nameDupe) reasons.push(`SKU ${sku} matches "${skuDupe.name}"`);
+  if (nameDupe && !apDupeArmed) {
     els.apDupeWarning.hidden = false;
-    els.apDupeWarning.textContent = `Possible duplicate — ${reasons.join(' and ')}. Click "Add anyway" to add it regardless.`;
+    els.apDupeWarning.textContent = `Possible duplicate — the name matches "${nameDupe.name}"` +
+      (nameDupe.category ? ` in "${nameDupe.category}"` : '') + `. Click "Add anyway" to add it regardless.`;
     els.apSave.textContent = 'Add anyway';
     apDupeArmed = true;
     return;
   }
 
-  const existingIds = new Set(DATA.products.map(p => p.id));
-  let n = DATA.products.length + 1;
-  let nextId = 'p' + String(n).padStart(3, '0');
-  while (existingIds.has(nextId)) { n++; nextId = 'p' + String(n).padStart(3, '0'); }
   const category = els.apCategory.value;
-  const product = { id: nextId, name, category, sku: els.apSku.value.trim() || null };
+  const product = { id: sku, name, category, sku };
   if (!category) product.fallbackAisle = els.apFallbackAisle.value;
   DATA.products.push(product);
 
