@@ -1,0 +1,10 @@
+{
+  "name": "Crate Log — Waste Disposal",
+  "short_name": "Crate Log",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1B211D",
+  "theme_color": "#1B211D",
+  "orientation": "portrait",
+  "icons": []
+}

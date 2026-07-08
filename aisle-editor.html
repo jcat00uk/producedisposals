@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crate Log — Editor</title>
+<style>
+  :root {
+    --bg: #1B211D; --panel: #232B24; --panel-raised: #2A332B;
+    --line: #3A443C; --text: #F2EEE4; --text-muted: #9AA69C;
+    --fruit: #C4443A; --veg: #D9A441; --salad: #4F7942;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif; padding: 20px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: var(--text-muted); margin: 0 0 20px; font-size: 13px; max-width: 700px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 22px 0 8px; }
+
+  .toolbar {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 6px; padding: 14px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .toolbar-note { color: var(--text-muted); font-size: 12px; margin: 0 0 18px; }
+  .toolbar input[type="file"] { color: var(--text-muted); font-size: 13px; }
+  button {
+    background: var(--veg); color: var(--bg); border: none;
+    border-radius: 6px; padding: 8px 14px; font-weight: 700; cursor: pointer;
+    font-size: 13px;
+  }
+  button.secondary { background: var(--panel-raised); color: var(--text); }
+  button.danger { background: var(--fruit); color: var(--text); }
+  button.icon-btn { padding: 4px 8px; font-size: 12px; }
+  .toolbar .count { color: var(--text-muted); font-size: 12px; margin-left: auto; }
+
+  input[type="text"], select {
+    background: var(--panel-raised); border: 1px solid var(--line);
+    color: var(--text); border-radius: 6px; padding: 6px 8px; font-size: 13px;
+  }
+  select option { background: var(--panel-raised); color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  thead th:nth-child(1), tbody td:nth-child(1) { width: 34%; }
+  thead th:nth-child(2), tbody td:nth-child(2) { width: 30%; }
+  thead th:nth-child(3), tbody td:nth-child(3) { width: 12%; }
+  thead th:nth-child(4), tbody td:nth-child(4) { width: 14%; }
+  thead th:nth-child(5), tbody td:nth-child(5) { width: 6%; }
+  thead th:nth-child(6), tbody td:nth-child(6) { width: 4%; }
+  thead th {
+    text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line);
+    color: var(--text-muted); font-weight: 600; position: sticky; top: 0;
+    background: var(--bg); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  tbody td { padding: 3px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  tbody tr:hover { background: var(--panel); }
+  tbody tr { border-left: 3px solid transparent; }
+  tbody tr[data-color="Fruit"] { border-left-color: var(--fruit); }
+  tbody tr[data-color="Veg"] { border-left-color: var(--veg); }
+  tbody tr[data-color="Salad"] { border-left-color: var(--salad); }
+  .name-cell { font-weight: 600; }
+  .name-cell input { width: 100%; }
+  .sku-cell input { font-family: 'IBM Plex Mono', monospace; width: 90px; }
+  .aisle-Fruit { color: var(--fruit); }
+  .aisle-Veg { color: var(--veg); }
+  .aisle-Salad { color: var(--salad); }
+  .row-changed td:first-child { box-shadow: inset 3px 0 0 var(--veg); }
+  .empty-notice { color: var(--text-muted); padding: 40px; text-align: center; }
+  .table-wrap { overflow-x: auto; margin-bottom: 10px; }
+  .cat-select-cell { display: flex; gap: 4px; align-items: center; }
+  .aisle-readonly { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .panel {
+    display: flex; flex-direction: column; gap: 4px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 18px;
+    max-width: 820px;
+  }
+  .panel-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0; border-bottom: 1px solid var(--line);
+  }
+  .panel-row:last-child { border-bottom: none; }
+  .panel-row input[type="text"] { flex: 1 1 320px; max-width: 380px; }
+  .panel-row select { flex: none; width: 110px; }
+  .panel-row .count { color: var(--text-muted); font-size: 12px; width: 60px; flex: none; text-align: right; }
+  .panel-add-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .panel-add-row input { flex: 1; min-width: 140px; }
+  .filter-bar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 10px; padding: 10px 12px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .filter-bar input[type="text"] { flex: 1; min-width: 180px; }
+  .filter-bar select { min-width: 130px; }
+  .filter-bar .count { color: var(--text-muted); font-size: 12px; margin-left: auto; }
+  .cat-search { margin-bottom: 6px; }
+  .cat-search input { width: 260px; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; width: 340px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .modal h3 { margin: 0; font-size: 16px; }
+  .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
+  .modal label input, .modal label select { width: 100%; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .dupe-warning { color: var(--fruit); font-size: 12px; margin: -4px 0 0; }
+</style>
+</head>
+<body>
+
+<h1>Crate Log — Editor</h1>
+<p class="sub">Aisles, categories and products for the produce finder. Categories own an aisle — change a category's aisle here and every product in it moves with it.</p>
+
+<div class="toolbar">
+  <span id="sourceLabel" style="font-size:12px;color:var(--text-muted);"></span>
+  <button id="loadLocalBtn">Load from this browser</button>
+  <input type="file" id="fileInput" accept="application/json">
+  <button id="saveLocalBtn" class="secondary" disabled>Save to this browser</button>
+  <button id="exportBtn" class="secondary" disabled>Export file</button>
+  <span class="count" id="countLabel"></span>
+</div>
+<p class="toolbar-note">
+  "Save to this browser" writes here immediately — if <code>index.html</code> is hosted on
+  the <strong>same site</strong>, it'll pick these changes up next time it loads (see notes below).
+  "Export file" downloads a portable copy for backup or moving to another device/browser.
+</p>
+
+<div id="mainArea" hidden>
+
+  <h2>Aisles</h2>
+  <div class="panel">
+    <div id="aisleList"></div>
+    <div class="panel-add-row">
+      <input type="text" id="newAisleInput" placeholder="New aisle name (e.g. Frozen)…">
+      <button id="addAisleBtn" class="secondary">Add aisle</button>
+    </div>
+  </div>
+
+  <h2>Categories</h2>
+  <div class="cat-search"><input type="text" id="catSearchInput" placeholder="Filter categories…"></div>
+  <div class="panel">
+    <div id="catList"></div>
+    <div class="panel-add-row">
+      <input type="text" id="newCatInput" placeholder="New category name…">
+      <select id="newCatAisle"></select>
+      <button id="addCatBtn" class="secondary">Add category</button>
+    </div>
+  </div>
+
+  <h2>Products</h2>
+  <div class="toolbar" style="margin-bottom:10px;">
+    <button id="addProductBtn" class="secondary">Add product</button>
+    <button id="autoFillBtn" class="secondary">Auto-fill empty categories</button>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="searchInput" placeholder="Search name or SKU…">
+    <select id="filterAisle"><option value="">All aisles</option></select>
+    <select id="filterCategory"><option value="">All categories</option></select>
+    <select id="sortSelect">
+      <option value="name">Sort: Name</option>
+      <option value="category">Sort: Category</option>
+      <option value="aisle">Sort: Aisle</option>
+      <option value="sku">Sort: SKU</option>
+    </select>
+    <button id="clearFiltersBtn" class="secondary">Clear</button>
+    <span class="count" id="filterCountLabel"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th style="width:230px">Category</th>
+          <th style="width:90px">Aisle</th>
+          <th style="width:100px">SKU</th>
+          <th style="width:36px">Fav</th>
+          <th style="width:30px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+<p class="empty-notice" id="emptyNotice">Load data from this browser, or import a products.json / data.json file, to start editing.</p>
+
+<div class="modal-overlay" id="addProductModal" hidden>
+  <div class="modal">
+    <h3>Add product</h3>
+    <label>Name<input type="text" id="apName" placeholder="Product name…"></label>
+    <label>Category
+      <select id="apCategory"></select>
+    </label>
+    <label id="apFallbackWrap">Fallback aisle (no category set)
+      <select id="apFallbackAisle"></select>
+    </label>
+    <label>SKU<input type="text" id="apSku" placeholder="Optional"></label>
+    <p class="dupe-warning" id="apDupeWarning" hidden></p>
+    <div class="modal-actions">
+      <button id="apCancel" class="secondary">Cancel</button>
+      <button id="apSave">Add product</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA_KEY = 'cratelog_data';
+let DATA = null;
+
+const AUTO_RULES = [
+  { kw: ['banana'], aisle: 'Fruit', category: 'Bananas' },
+  { kw: ['apple', 'pear'], aisle: 'Fruit', category: 'Apples & Pears' },
+  { kw: ['lemon', 'lime', 'grapefruit', 'easy peeler', 'orange'], aisle: 'Fruit', category: 'Citrus' },
+  { kw: ['kiwi'], aisle: 'Fruit', category: 'Kiwi' },
+  { kw: ['melon', 'watermelon'], aisle: 'Fruit', category: 'Melons' },
+  { kw: ['pineapple', 'mango', 'pomegranate', 'papaya', 'persimmon', 'passion fruit', 'coconut'], aisle: 'Fruit', category: 'Tropical & Exotic Fruit' },
+  { kw: ['pepper'], aisle: 'Veg', category: 'Peppers' },
+  { kw: ['avocado'], aisle: 'Veg', category: 'Avocados' },
+  { kw: ['mushroom'], aisle: 'Veg', category: 'Mushrooms' },
+  { kw: ['carrot', 'swede', 'parsnip', 'turnip', 'celeriac', 'leek'], aisle: 'Veg', category: 'Root Vegetables' },
+  { kw: ['sweetcorn'], aisle: 'Veg', category: 'Corn & Sweetcorn' },
+  { kw: ['brussels', 'broccoli', 'cauliflower'], aisle: 'Veg', category: 'Broccoli, Cauliflower & Brassicas' },
+  { kw: ['cabbage'], aisle: 'Veg', category: 'Cabbage' },
+  { kw: ['courgette', 'aubergine', 'butternut', 'squash'], aisle: 'Veg', category: 'Aubergine & Squash' },
+  { kw: ['baking potato', 'sweet potato', 'jersey new potato', 'potato'], aisle: 'Veg', category: 'Potatoes & Sweet Potatoes' },
+  { kw: ['horseradish', 'dudhi', 'cassava', 'mooli', 'chayote', 'kohlrabi', 'plantain', 'fennel'], aisle: 'Veg', category: 'World & Speciality Veg' },
+  { kw: ['tomato'], aisle: 'Salad', category: 'Tomatoes' },
+  { kw: ['lettuce'], aisle: 'Salad', category: 'Lettuce' },
+  { kw: ['cucumber', 'celery'], aisle: 'Salad', category: 'Cucumber & Celery' },
+  { kw: ['spring onion'], aisle: 'Salad', category: 'Spring Onions' },
+  { kw: ['onion', 'garlic', 'ginger'], aisle: 'Veg', category: 'Onions, Garlic & Ginger' },
+];
+function autoSuggest(name) {
+  const low = (name || '').toLowerCase();
+  for (const rule of AUTO_RULES) {
+    if (rule.kw.some(k => low.includes(k))) return { aisle: rule.aisle, category: rule.category };
+  }
+  return null;
+}
+
+const els = {
+  sourceLabel: document.getElementById('sourceLabel'),
+  loadLocalBtn: document.getElementById('loadLocalBtn'),
+  fileInput: document.getElementById('fileInput'),
+  saveLocalBtn: document.getElementById('saveLocalBtn'),
+  exportBtn: document.getElementById('exportBtn'),
+  countLabel: document.getElementById('countLabel'),
+  mainArea: document.getElementById('mainArea'),
+  emptyNotice: document.getElementById('emptyNotice'),
+  tbody: document.getElementById('tbody'),
+  aisleList: document.getElementById('aisleList'),
+  newAisleInput: document.getElementById('newAisleInput'),
+  addAisleBtn: document.getElementById('addAisleBtn'),
+  catList: document.getElementById('catList'),
+  newCatInput: document.getElementById('newCatInput'),
+  newCatAisle: document.getElementById('newCatAisle'),
+  addCatBtn: document.getElementById('addCatBtn'),
+  addProductBtn: document.getElementById('addProductBtn'),
+  autoFillBtn: document.getElementById('autoFillBtn'),
+  catSearchInput: document.getElementById('catSearchInput'),
+  searchInput: document.getElementById('searchInput'),
+  filterAisle: document.getElementById('filterAisle'),
+  filterCategory: document.getElementById('filterCategory'),
+  sortSelect: document.getElementById('sortSelect'),
+  clearFiltersBtn: document.getElementById('clearFiltersBtn'),
+  filterCountLabel: document.getElementById('filterCountLabel'),
+  addProductModal: document.getElementById('addProductModal'),
+  apName: document.getElementById('apName'),
+  apCategory: document.getElementById('apCategory'),
+  apFallbackWrap: document.getElementById('apFallbackWrap'),
+  apFallbackAisle: document.getElementById('apFallbackAisle'),
+  apSku: document.getElementById('apSku'),
+  apDupeWarning: document.getElementById('apDupeWarning'),
+  apSave: document.getElementById('apSave'),
+  apCancel: document.getElementById('apCancel'),
+};
+
+function loadFromBrowser() {
+  const raw = localStorage.getItem(DATA_KEY);
+  if (!raw) { alert('Nothing saved in this browser yet — this browser hasn\'t opened index.html, or it hasn\'t saved anything. Import a file instead.'); return; }
+  try {
+    DATA = JSON.parse(raw);
+    els.sourceLabel.textContent = 'Editing: data saved in this browser';
+    activate();
+  } catch (e) { alert('Could not read saved data: ' + e.message); }
+}
+
+els.loadLocalBtn.addEventListener('click', loadFromBrowser);
+
+els.fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (Array.isArray(parsed)) {
+        // legacy flat products array — wrap it with defaults
+        const cats = [...new Set(parsed.map(p => p.category).filter(Boolean))];
+        DATA = {
+          version: 1,
+          aisles: ['Salad', 'Veg', 'Fruit'],
+          categories: cats.map(name => ({ name, aisle: 'Veg' })),
+          products: parsed.map(p => ({ id: p.id, name: p.name, category: p.category || '', sku: p.sku || null })),
+        };
+      } else if (parsed && parsed.products && parsed.categories && parsed.aisles) {
+        DATA = parsed;
+      } else {
+        throw new Error('Unrecognised file shape');
+      }
+      els.sourceLabel.textContent = `Editing: imported from ${file.name}`;
+      activate();
+    } catch (err) {
+      alert('Could not read that file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+function activate() {
+  els.saveLocalBtn.disabled = false;
+  els.exportBtn.disabled = false;
+  render();
+}
+
+function saveToBrowser() {
+  localStorage.setItem(DATA_KEY, JSON.stringify(DATA));
+  alert('Saved to this browser. If index.html is hosted on the same site, reload it there to see the changes.');
+}
+els.saveLocalBtn.addEventListener('click', saveToBrowser);
+
+els.exportBtn.addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'data.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ---------------- Render root ---------------- */
+
+function render() {
+  const hasData = !!DATA;
+  els.emptyNotice.hidden = hasData;
+  els.mainArea.hidden = !hasData;
+  if (!hasData) return;
+  els.countLabel.textContent = `${DATA.products.length} products, ${DATA.categories.length} categories, ${DATA.aisles.length} aisles`;
+  renderAisles();
+  renderCategories();
+  renderFilterControls();
+  renderTable();
+}
+
+/* ---------------- Aisles panel ---------------- */
+
+function renderAisles() {
+  els.aisleList.innerHTML = '';
+  els.newCatAisle.innerHTML = DATA.aisles.map(a => `<option value="${a}">${a}</option>`).join('');
+  DATA.aisles.forEach(aisle => {
+    const row = document.createElement('div');
+    row.className = 'panel-row';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = aisle;
+    input.addEventListener('change', () => renameAisle(aisle, input.value.trim()));
+    row.appendChild(input);
+
+    const catCount = DATA.categories.filter(c => c.aisle === aisle).length;
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = `${catCount} cat${catCount === 1 ? '' : 's'}`;
+    row.appendChild(count);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger icon-btn';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deleteAisle(aisle));
+    row.appendChild(delBtn);
+
+    els.aisleList.appendChild(row);
+  });
+}
+
+function renameAisle(oldName, newName) {
+  if (!newName || newName === oldName) { renderAisles(); return; }
+  if (DATA.aisles.includes(newName)) { alert(`"${newName}" already exists.`); renderAisles(); return; }
+  DATA.aisles = DATA.aisles.map(a => a === oldName ? newName : a);
+  DATA.categories.forEach(c => { if (c.aisle === oldName) c.aisle = newName; });
+  render();
+}
+
+function deleteAisle(aisle) {
+  if (DATA.aisles.length <= 1) { alert('You need at least one aisle.'); return; }
+  const affectedCats = DATA.categories.filter(c => c.aisle === aisle);
+  const remaining = DATA.aisles.filter(a => a !== aisle);
+  let msg = `Delete aisle "${aisle}"?`;
+  if (affectedCats.length > 0) {
+    msg += ` ${affectedCats.length} categor${affectedCats.length === 1 ? 'y' : 'ies'} using it will move to "${remaining[0]}".`;
+  }
+  if (!confirm(msg)) return;
+  DATA.categories.forEach(c => { if (c.aisle === aisle) c.aisle = remaining[0]; });
+  DATA.aisles = remaining;
+  render();
+}
+
+els.addAisleBtn.addEventListener('click', () => {
+  const name = els.newAisleInput.value.trim();
+  if (!name) return;
+  if (DATA.aisles.includes(name)) { alert('That aisle already exists.'); return; }
+  DATA.aisles.push(name);
+  els.newAisleInput.value = '';
+  render();
+});
+
+/* ---------------- Categories panel ---------------- */
+
+function renderCategories() {
+  els.catList.innerHTML = '';
+  const q = els.catSearchInput.value.trim().toLowerCase();
+  const filtered = q ? DATA.categories.filter(c => c.name.toLowerCase().includes(q)) : DATA.categories;
+  if (filtered.length === 0) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'color:var(--text-muted);font-size:13px;margin:4px 0;';
+    empty.textContent = DATA.categories.length === 0 ? 'No categories yet.' : `No categories match "${q}".`;
+    els.catList.appendChild(empty);
+    return;
+  }
+  [...filtered].sort((a, b) => a.name.localeCompare(b.name)).forEach((cat) => {
+    const row = document.createElement('div');
+    row.className = 'panel-row';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = cat.name;
+    input.addEventListener('change', () => renameCategory(cat.name, input.value.trim()));
+    row.appendChild(input);
+
+    const aisleSelect = document.createElement('select');
+    aisleSelect.className = 'aisle-' + cat.aisle;
+    DATA.aisles.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a; opt.textContent = a;
+      if (cat.aisle === a) opt.selected = true;
+      aisleSelect.appendChild(opt);
+    });
+    aisleSelect.addEventListener('change', () => {
+      cat.aisle = aisleSelect.value;
+      aisleSelect.className = 'aisle-' + aisleSelect.value;
+      renderTable(); // product rows' derived aisle changes instantly
+      renderAisles();
+    });
+    row.appendChild(aisleSelect);
+
+    const n = DATA.products.filter(p => p.category === cat.name).length;
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = `${n} item${n === 1 ? '' : 's'}`;
+    row.appendChild(count);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'danger icon-btn';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => deleteCategory(cat.name));
+    row.appendChild(delBtn);
+
+    els.catList.appendChild(row);
+  });
+}
+
+function renameCategory(oldName, newName) {
+  if (!newName || newName === oldName) { renderCategories(); return; }
+  if (DATA.categories.some(c => c.name === newName)) {
+    alert(`"${newName}" already exists — merge not supported here, pick a different name or delete one first.`);
+    renderCategories();
+    return;
+  }
+  const cat = DATA.categories.find(c => c.name === oldName);
+  cat.name = newName;
+  DATA.products.forEach(p => { if (p.category === oldName) p.category = newName; });
+  render();
+}
+
+function deleteCategory(name) {
+  const affected = DATA.products.filter(p => p.category === name);
+  let fallback = DATA.aisles[0];
+  if (affected.length > 0) {
+    const pick = prompt(`Delete "${name}"? ${affected.length} product(s) will lose this category.\nType the aisle to fall back to for them:\n(${DATA.aisles.join(', ')})`, fallback);
+    if (pick === null) return;
+    if (!DATA.aisles.includes(pick)) { alert('Not a valid aisle name — cancelled.'); return; }
+    fallback = pick;
+  } else if (!confirm(`Delete "${name}"?`)) {
+    return;
+  }
+  affected.forEach(p => { p.category = ''; p.fallbackAisle = fallback; });
+  DATA.categories = DATA.categories.filter(c => c.name !== name);
+  render();
+}
+
+els.catSearchInput.addEventListener('input', renderCategories);
+
+els.addCatBtn.addEventListener('click', () => {
+  const name = els.newCatInput.value.trim();
+  if (!name) return;
+  if (DATA.categories.some(c => c.name === name)) { alert('That category already exists.'); return; }
+  DATA.categories.push({ name, aisle: els.newCatAisle.value });
+  els.newCatInput.value = '';
+  render();
+});
+
+/* ---------------- Products table ---------------- */
+
+let productFilters = { search: '', aisle: '', category: '', sort: 'name' };
+
+function renderFilterControls() {
+  els.filterAisle.innerHTML = '<option value="">All aisles</option>' +
+    DATA.aisles.map(a => `<option value="${a}">${a}</option>`).join('');
+  els.filterAisle.value = productFilters.aisle;
+  els.filterCategory.innerHTML = '<option value="">All categories</option>' +
+    [...DATA.categories].sort((a, b) => a.name.localeCompare(b.name))
+      .map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  els.filterCategory.value = productFilters.category;
+  els.sortSelect.value = productFilters.sort;
+  els.searchInput.value = productFilters.search;
+}
+
+els.searchInput.addEventListener('input', () => { productFilters.search = els.searchInput.value; renderTable(); });
+els.filterAisle.addEventListener('change', () => { productFilters.aisle = els.filterAisle.value; renderTable(); });
+els.filterCategory.addEventListener('change', () => { productFilters.category = els.filterCategory.value; renderTable(); });
+els.sortSelect.addEventListener('change', () => { productFilters.sort = els.sortSelect.value; renderTable(); });
+els.clearFiltersBtn.addEventListener('click', () => {
+  productFilters = { search: '', aisle: '', category: '', sort: 'name' };
+  renderFilterControls();
+  renderTable();
+});
+
+function getFilteredSortedProducts() {
+  let list = DATA.products.slice();
+  const q = productFilters.search.trim().toLowerCase();
+  if (q) list = list.filter(p => (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q));
+  if (productFilters.aisle) list = list.filter(p => resolveAisle(p) === productFilters.aisle);
+  if (productFilters.category) list = list.filter(p => p.category === productFilters.category);
+  const collate = (a, b) => (a || '').localeCompare(b || '');
+  switch (productFilters.sort) {
+    case 'category': list.sort((a, b) => collate(a.category, b.category) || collate(a.name, b.name)); break;
+    case 'aisle': list.sort((a, b) => collate(resolveAisle(a), resolveAisle(b)) || collate(a.name, b.name)); break;
+    case 'sku': list.sort((a, b) => collate(a.sku, b.sku)); break;
+    default: list.sort((a, b) => collate(a.name, b.name));
+  }
+  return list;
+}
+
+function renderTable() {
+  const list = getFilteredSortedProducts();
+  els.tbody.innerHTML = '';
+  list.forEach(p => els.tbody.appendChild(buildRow(p)));
+  els.filterCountLabel.textContent = list.length === DATA.products.length
+    ? `${DATA.products.length} products`
+    : `Showing ${list.length} of ${DATA.products.length} products`;
+}
+
+function resolveAisle(p) {
+  if (p.category) {
+    const cat = DATA.categories.find(c => c.name === p.category);
+    if (cat) return cat.aisle;
+  }
+  return p.fallbackAisle || DATA.aisles[0];
+}
+
+function buildRow(p) {
+  const tr = document.createElement('tr');
+  const aisle = resolveAisle(p);
+  tr.dataset.color = aisle;
+
+  const nameTd = document.createElement('td');
+  nameTd.className = 'name-cell';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.value = p.name || '';
+  nameInput.addEventListener('input', () => { p.name = nameInput.value; tr.classList.add('row-changed'); });
+  nameTd.appendChild(nameInput);
+  tr.appendChild(nameTd);
+
+  const catTd = document.createElement('td');
+  catTd.className = 'cat-select-cell';
+  const catSelect = document.createElement('select');
+  catSelect.style.flex = '1';
+  const noneOpt = document.createElement('option');
+  noneOpt.value = ''; noneOpt.textContent = '— none —';
+  catSelect.appendChild(noneOpt);
+  [...DATA.categories].sort((a, b) => a.name.localeCompare(b.name)).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name; opt.textContent = c.name;
+    if (p.category === c.name) opt.selected = true;
+    catSelect.appendChild(opt);
+  });
+  catSelect.addEventListener('change', () => {
+    p.category = catSelect.value;
+    if (!p.category) p.fallbackAisle = p.fallbackAisle || DATA.aisles[0];
+    tr.classList.add('row-changed');
+    tr.dataset.color = resolveAisle(p);
+    renderAisleCell(aisleTd, p, tr);
+    renderCategories();
+  });
+  catTd.appendChild(catSelect);
+
+  const wandBtn = document.createElement('button');
+  wandBtn.className = 'secondary icon-btn';
+  wandBtn.textContent = '🪄';
+  wandBtn.title = 'Auto-suggest category from name';
+  wandBtn.addEventListener('click', () => {
+    const suggestion = autoSuggest(p.name);
+    if (!suggestion) { alert('No keyword match for that name — pick manually.'); return; }
+    ensureCategory(suggestion.category, suggestion.aisle);
+    p.category = suggestion.category;
+    render();
+  });
+  catTd.appendChild(wandBtn);
+  tr.appendChild(catTd);
+
+  const aisleTd = document.createElement('td');
+  renderAisleCell(aisleTd, p, tr);
+  tr.appendChild(aisleTd);
+
+  const skuTd = document.createElement('td');
+  skuTd.className = 'sku-cell';
+  const skuInput = document.createElement('input');
+  skuInput.type = 'text';
+  skuInput.value = p.sku || '';
+  skuInput.addEventListener('input', () => { p.sku = skuInput.value.trim() || null; tr.classList.add('row-changed'); });
+  skuTd.appendChild(skuInput);
+  tr.appendChild(skuTd);
+
+  const favTd = document.createElement('td');
+  const favInput = document.createElement('input');
+  favInput.type = 'checkbox';
+  favInput.title = 'Default favourite (rarely needed — favourites are usually set per-device on index.html)';
+  favInput.checked = !!p.favourite;
+  favInput.addEventListener('change', () => { p.favourite = favInput.checked; });
+  favTd.appendChild(favInput);
+  tr.appendChild(favTd);
+
+  const delTd = document.createElement('td');
+  const delBtn = document.createElement('button');
+  delBtn.className = 'danger icon-btn';
+  delBtn.textContent = '✕';
+  delBtn.title = 'Delete product';
+  delBtn.addEventListener('click', () => {
+    if (!confirm(`Delete "${p.name || '(unnamed)'}"?`)) return;
+    DATA.products.splice(DATA.products.indexOf(p), 1);
+    render();
+  });
+  delTd.appendChild(delBtn);
+  tr.appendChild(delTd);
+
+  return tr;
+}
+
+function renderAisleCell(aisleTd, p, tr) {
+  aisleTd.innerHTML = '';
+  if (p.category) {
+    const span = document.createElement('span');
+    span.className = 'aisle-readonly aisle-' + resolveAisle(p);
+    span.textContent = resolveAisle(p);
+    aisleTd.appendChild(span);
+  } else {
+    const select = document.createElement('select');
+    DATA.aisles.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a; opt.textContent = a;
+      if ((p.fallbackAisle || DATA.aisles[0]) === a) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.addEventListener('change', () => {
+      p.fallbackAisle = select.value;
+      tr.dataset.color = select.value;
+      tr.classList.add('row-changed');
+    });
+    aisleTd.appendChild(select);
+  }
+}
+
+function ensureCategory(name, aisle) {
+  if (!DATA.categories.some(c => c.name === name)) {
+    DATA.categories.push({ name, aisle });
+  }
+}
+
+els.addProductBtn.addEventListener('click', openAddProductModal);
+
+/* ---------------- Add product modal ---------------- */
+
+let apDupeArmed = false;
+
+function openAddProductModal() {
+  els.apName.value = '';
+  els.apSku.value = '';
+  apDupeArmed = false;
+  els.apDupeWarning.hidden = true;
+  els.apSave.textContent = 'Add product';
+  els.apCategory.innerHTML = '<option value="">— none —</option>' +
+    [...DATA.categories].sort((a, b) => a.name.localeCompare(b.name))
+      .map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  els.apFallbackAisle.innerHTML = DATA.aisles.map(a => `<option value="${a}">${a}</option>`).join('');
+  updateApFallbackVisibility();
+  els.addProductModal.hidden = false;
+  els.apName.focus();
+}
+
+function updateApFallbackVisibility() {
+  els.apFallbackWrap.hidden = !!els.apCategory.value;
+}
+els.apCategory.addEventListener('change', updateApFallbackVisibility);
+
+function closeAddProductModal() { els.addProductModal.hidden = true; }
+els.apCancel.addEventListener('click', closeAddProductModal);
+els.addProductModal.addEventListener('click', (e) => { if (e.target === els.addProductModal) closeAddProductModal(); });
+
+function findDuplicateProduct(name) {
+  const low = name.trim().toLowerCase();
+  return DATA.products.find(p => (p.name || '').trim().toLowerCase() === low);
+}
+
+els.apName.addEventListener('input', () => {
+  apDupeArmed = false;
+  els.apDupeWarning.hidden = true;
+  els.apSave.textContent = 'Add product';
+});
+
+els.apSave.addEventListener('click', () => {
+  const name = els.apName.value.trim();
+  if (!name) { alert('Enter a product name.'); return; }
+
+  const dupe = findDuplicateProduct(name);
+  if (dupe && !apDupeArmed) {
+    els.apDupeWarning.hidden = false;
+    els.apDupeWarning.textContent = `A product named "${dupe.name}" already exists` +
+      (dupe.category ? ` in "${dupe.category}"` : '') + `. Click "Add anyway" to add a duplicate.`;
+    els.apSave.textContent = 'Add anyway';
+    apDupeArmed = true;
+    return;
+  }
+
+  const existingIds = new Set(DATA.products.map(p => p.id));
+  let n = DATA.products.length + 1;
+  let nextId = 'p' + String(n).padStart(3, '0');
+  while (existingIds.has(nextId)) { n++; nextId = 'p' + String(n).padStart(3, '0'); }
+  const category = els.apCategory.value;
+  const product = { id: nextId, name, category, sku: els.apSku.value.trim() || null };
+  if (!category) product.fallbackAisle = els.apFallbackAisle.value;
+  DATA.products.push(product);
+
+  closeAddProductModal();
+  render();
+});
+
+els.autoFillBtn.addEventListener('click', () => {
+  let filled = 0, unresolved = 0;
+  DATA.products.forEach(p => {
+    if (p.category) return;
+    const suggestion = autoSuggest(p.name);
+    if (suggestion) {
+      ensureCategory(suggestion.category, suggestion.aisle);
+      p.category = suggestion.category;
+      filled++;
+    } else {
+      unresolved++;
+    }
+  });
+  render();
+  alert(`Filled ${filled} product(s).` + (unresolved ? ` ${unresolved} had no keyword match — set those manually.` : ''));
+});
+
+// try loading from this browser automatically on open; if nothing's
+// there yet, try the published data.json (works when served over http(s),
+// blocked by browsers when opened as a local file — import manually then)
+(async function tryAutoLoad() {
+  const raw = localStorage.getItem(DATA_KEY);
+  if (raw) {
+    try {
+      DATA = JSON.parse(raw);
+      els.sourceLabel.textContent = 'Editing: data saved in this browser (auto-loaded)';
+      activate();
+      return;
+    } catch (e) { /* fall through */ }
+  }
+  try {
+    const res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    if (res.ok) {
+      const fetched = await res.json();
+      if (fetched && fetched.products && fetched.categories && fetched.aisles) {
+        DATA = fetched;
+        els.sourceLabel.textContent = 'Editing: loaded from data.json';
+        activate();
+      }
+    }
+  } catch (e) { /* blocked (likely file://) or missing — user can load/import manually */ }
+})();
+
+</script>
+</body>
+</html>

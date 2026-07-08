@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B211D">
+<title>Crate Log — Produce Finder</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <h1 class="brand">Crate<span>Log</span></h1>
+    <div class="topbar-right">
+      <span id="dataBadge" class="data-badge" title="">●</span>
+      <button id="adminToggle" class="icon-btn" title="Admin mode" aria-label="Admin mode">⚙</button>
+    </div>
+  </div>
+  <div class="search-row">
+    <input id="searchInput" type="search" placeholder="Search produce…" autocomplete="off">
+    <button id="filterToggle" class="filter-btn" aria-expanded="false">Filters</button>
+  </div>
+  <nav class="aisle-tabs" id="aisleTabs"></nav>
+  <div class="filter-panel" id="filterPanel" hidden>
+    <div class="filter-group">
+      <select id="categorySelect">
+        <option value="">All categories</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <select id="sortSelect">
+        <option value="category">By category</option>
+        <option value="az">A–Z</option>
+      </select>
+    </div>
+    <label class="chip"><input type="checkbox" id="favOnly"> ⭐ Favourites</label>
+    <label class="chip"><input type="checkbox" id="unsortedOnly"> Needs SKU</label>
+  </div>
+</header>
+
+<main id="content">
+  <div id="productList" class="product-list"></div>
+  <p id="emptyState" class="empty-state" hidden>No produce matches that search.</p>
+</main>
+
+<!-- Enlarged QR for easier handset scanning -->
+<div id="qrModal" class="modal" hidden>
+  <div class="modal-card">
+    <img id="qrModalImg" class="modal-img" alt="">
+    <p class="modal-eyebrow" id="qrModalCategory">Category</p>
+    <h2 id="qrModalName">Product name</h2>
+    <p class="modal-sub" id="qrModalSku">SKU</p>
+    <div id="qrModalCode" class="qr-large"></div>
+    <div class="modal-actions">
+      <button id="qrModalClose" class="btn-ghost">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin edit panel -->
+<div id="adminModal" class="modal" hidden>
+  <div class="modal-card admin-card">
+    <h2>Edit product</h2>
+    <p class="modal-sub" id="adminProductName">Product name</p>
+    <label class="field-label">Category</label>
+    <select id="adminCategory"></select>
+    <div id="adminFallbackAisleWrap" hidden>
+      <label class="field-label">Aisle (no category set)</label>
+      <select id="adminFallbackAisle"></select>
+    </div>
+    <label class="field-label">SKU (from barcode)</label>
+    <input id="adminSku" type="text" inputmode="numeric" placeholder="e.g. 24">
+    <div class="modal-actions">
+      <button id="adminSave" class="btn-primary">Save</button>
+      <button id="adminCancel" class="btn-ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="adminBar" class="admin-bar" hidden>
+  <div>Admin mode — tap any card to edit category / SKU</div>
+  <div class="admin-bar-row">
+    <label class="admin-file-btn">
+      Load data file…
+      <input type="file" id="dataFileInput" accept="application/json" hidden>
+    </label>
+    <button id="syncBtn" class="admin-file-btn" hidden>Sync from data.json</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="app.js?v=5"></script>
+</body>
+</html>
