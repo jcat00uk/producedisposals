@@ -21,6 +21,7 @@
     <button id="adminToggle" class="icon-btn" title="Admin mode" aria-label="Admin mode">⚙</button>
   </div>
   <nav class="aisle-tabs" id="aisleTabs"></nav>
+  <div id="storeLabel" class="store-label" hidden></div>
   <div class="filter-panel" id="filterPanel" hidden>
     <div class="filter-group">
       <select id="categorySelect">
@@ -76,7 +77,11 @@
 </div>
 
 <div id="adminBar" class="admin-bar" hidden>
-  <div>Admin mode — tap any card to edit category / SKU. Adding, deleting, or restructuring aisles &amp; categories happens in the editor.</div>
+  <div>Admin mode — tap any card to edit category / SKU, or hide it if this store doesn't stock it. Adding, deleting, or restructuring aisles &amp; categories happens in the editor.</div>
+  <div class="admin-bar-row admin-store-row">
+    <input id="storeName" type="text" class="admin-store-input" placeholder="Store name">
+    <input id="storeNumber" type="text" class="admin-store-input admin-store-input-narrow" inputmode="numeric" placeholder="Store #">
+  </div>
   <div class="admin-bar-row">
     <a href="aisle-editor.html" target="_blank" rel="noopener" class="admin-file-btn">Open aisle editor…</a>
     <label class="admin-file-btn">
@@ -84,6 +89,7 @@
       <input type="file" id="dataFileInput" accept="application/json" hidden>
     </label>
     <button id="syncBtn" class="admin-file-btn" hidden>Sync from data.json</button>
+    <button id="exportBtn" class="admin-file-btn">Export store file…</button>
   </div>
 </div>
 

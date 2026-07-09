@@ -662,6 +662,9 @@ const BASE_DATA = {
 
 const DATA_KEY = 'cratelog_data';
 const FAV_KEY = 'cratelog_favourites';
+const STORE_KEY = 'cratelog_store';
+const HIDDEN_KEY = 'cratelog_hidden';
+const HINT_KEY = 'cratelog_hint_seen';
 const ICONS = { Salad: '🥗', Veg: '🥕', Fruit: '🍎' };
 const DEFAULT_ICON = '🧺';
 
@@ -727,6 +730,21 @@ function saveData() { saveJSON(DATA_KEY, DATA); dataSource = 'local'; }
 let favourites = loadJSON(FAV_KEY, {});
 function saveFavourites() { saveJSON(FAV_KEY, favourites); }
 
+// Device-local "not stocked at this store" list — never part of the
+// shared/exported data.json product records, kept as its own field
+// so the diff tool doesn't see hidden items as changed products.
+let storeInfo = loadJSON(STORE_KEY, { name: '', number: '' });
+function saveStoreInfo() { saveJSON(STORE_KEY, storeInfo); }
+
+let hiddenSet = new Set(loadJSON(HIDDEN_KEY, []));
+function saveHidden() { saveJSON(HIDDEN_KEY, [...hiddenSet]); }
+function toggleHidden(id) {
+  if (!id) return;
+  if (hiddenSet.has(id)) hiddenSet.delete(id); else hiddenSet.add(id);
+  saveHidden();
+  render();
+}
+
 function resolveAisle(p) {
   if (p.category) {
     const cat = DATA.categories.find(c => c.name === p.category);
@@ -745,6 +763,7 @@ function getProducts() {
     ...p,
     aisle: resolveAisle(p),
     favourite: !!favourites[p.id],
+    hidden: hiddenSet.has(p.id),
   }));
 }
 
@@ -778,6 +797,10 @@ const els = {
   adminBar: document.getElementById('adminBar'),
   dataFileInput: document.getElementById('dataFileInput'),
   syncBtn: document.getElementById('syncBtn'),
+  exportBtn: document.getElementById('exportBtn'),
+  storeName: document.getElementById('storeName'),
+  storeNumber: document.getElementById('storeNumber'),
+  storeLabel: document.getElementById('storeLabel'),
   toast: document.getElementById('toast'),
 
   qrModal: document.getElementById('qrModal'),
@@ -894,6 +917,7 @@ function refreshCategoryOptions() {
 /* ---------------- Rendering ---------------- */
 
 function matches(p) {
+  if (p.hidden && !state.adminMode) return false;
   if (state.aisle !== 'All' && p.aisle !== state.aisle) return false;
   if (state.category && p.category !== state.category) return false;
   if (state.favOnly && !p.favourite) return false;
@@ -916,9 +940,18 @@ function sortProducts(list) {
 
 function render() {
   renderDataBadge();
+  renderStoreLabel();
   refreshCategoryOptions();
   renderFavToggle();
   renderList();
+}
+
+function renderStoreLabel() {
+  const parts = [];
+  if (storeInfo.name) parts.push(storeInfo.name);
+  if (storeInfo.number) parts.push(`#${storeInfo.number}`);
+  els.storeLabel.textContent = parts.join(' ');
+  els.storeLabel.hidden = parts.length === 0;
 }
 
 function renderFavToggle() {
@@ -1026,7 +1059,7 @@ document.addEventListener('click', (e) => {
 
 function buildCard(p) {
   const card = document.createElement('div');
-  card.className = 'product-card';
+  card.className = 'product-card' + (p.hidden ? ' card-hidden' : '');
   card.dataset.color = p.aisle;
 
   const img = document.createElement(p.sku ? 'img' : 'div');
@@ -1048,6 +1081,7 @@ function buildCard(p) {
       <button class="star-btn${p.favourite ? ' active' : ''}" aria-label="Toggle favourite" data-star>${p.favourite ? '★' : '☆'}</button>
       <span class="aisle-badge">${escapeHtml(p.aisle)}</span>
       <span class="card-category">${escapeHtml(p.category || 'Uncategorised')}</span>
+      ${state.adminMode ? `<button class="hide-btn${p.hidden ? ' active' : ''}" aria-label="Toggle stocked at this store" data-hide>${p.hidden ? '🚫 Hidden here' : 'Hide here'}</button>` : ''}
     </div>
     ${p.sku ? `<span class="card-sku" data-sku="${escapeHtml(p.sku)}" title="Tap to copy">SKU ${escapeHtml(p.sku)}</span>` : ''}
   `;
@@ -1055,6 +1089,11 @@ function buildCard(p) {
   body.querySelector('[data-star]').addEventListener('click', (e) => {
     e.stopPropagation();
     toggleFavourite(p.id);
+  });
+  const hideBtn = body.querySelector('[data-hide]');
+  if (hideBtn) hideBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleHidden(p.id);
   });
 
   if (p.sku) {
@@ -1228,6 +1267,42 @@ els.adminToggle.addEventListener('click', () => {
   state.adminMode = !state.adminMode;
   els.adminToggle.classList.toggle('active', state.adminMode);
   els.adminBar.hidden = !state.adminMode;
+  if (state.adminMode) {
+    els.storeName.value = storeInfo.name || '';
+    els.storeNumber.value = storeInfo.number || '';
+  }
+  renderList();
+});
+
+els.storeName.addEventListener('input', () => {
+  storeInfo.name = els.storeName.value;
+  saveStoreInfo();
+  renderStoreLabel();
+});
+els.storeNumber.addEventListener('input', () => {
+  storeInfo.number = els.storeNumber.value;
+  saveStoreInfo();
+  renderStoreLabel();
+});
+
+els.exportBtn.addEventListener('click', () => {
+  const exportObj = {
+    ...JSON.parse(JSON.stringify(DATA)),
+    store: { name: storeInfo.name || '', number: storeInfo.number || '' },
+    hiddenSkus: [...hiddenSet],
+  };
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const safeName = (storeInfo.name || 'store').trim().replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const safeNumber = (storeInfo.number || '').trim().replace(/[^a-z0-9]+/gi, '');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `data-${safeName}${safeNumber ? '-' + safeNumber : ''}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Store file exported');
 });
 
 els.dataFileInput.addEventListener('change', (e) => {
@@ -1280,5 +1355,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   if (dataSource === 'local' && publishedData && JSON.stringify(DATA) !== JSON.stringify(publishedData)) {
     showActionToast('A newer data.json is available.', 'Sync now', () => els.syncBtn.click());
+  } else {
+    maybeShowLongPressHint();
   }
 });
+
+function maybeShowLongPressHint() {
+  if (localStorage.getItem(HINT_KEY)) return;
+  localStorage.setItem(HINT_KEY, '1');
+  showActionToast('Tip: hold an item to lock its QR for scanning.', 'Got it', () => {});
+}
