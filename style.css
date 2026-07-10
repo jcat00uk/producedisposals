@@ -60,6 +60,13 @@ select option {
   border-bottom: 1px solid var(--line);
   padding: 12px 14px 0;
 }
+/* bar itself stays full-bleed (border/background look right edge to edge on
+   wide screens); the controls inside line up with the 640px content column
+   below instead of stretching across the whole desktop window */
+#finderHeader, #scanListHeader {
+  max-width: 640px;
+  margin: 0 auto;
+}
 
 .data-badge {
   font-size: 10px;
@@ -71,6 +78,7 @@ select option {
 .data-badge.default { color: var(--fruit); }
 
 .icon-btn {
+  position: relative;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -122,12 +130,36 @@ select option {
 }
 .filter-btn[aria-expanded="true"] { border-color: var(--veg); color: var(--veg); }
 
+.aisle-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
 .aisle-tabs {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
   gap: 6px;
-  padding-bottom: 10px;
+}
+
+.badge-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--veg);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 999px;
+  padding: 3px 5px;
+  min-width: 16px;
+  text-align: center;
 }
 
 .aisle-tab {
@@ -271,6 +303,30 @@ main { padding: 14px; max-width: 640px; margin: 0 auto; }
 }
 .card-sku:active { color: var(--veg); border-color: var(--veg); }
 
+.card-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--veg);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.add-btn.in-list { background: var(--veg); color: var(--bg); border-color: var(--veg); }
+
 .card-qr {
   width: 92px;
   height: 92px;
@@ -306,6 +362,121 @@ main { padding: 14px; max-width: 640px; margin: 0 auto; }
 }
 .product-card.scan-lock-target .card-qr {
   box-shadow: 0 0 0 2px var(--veg);
+}
+
+/* ---------- Scan list ---------- */
+
+.scanlist-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 10px;
+}
+.scanlist-progress { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
+.scanlist-progress b { color: var(--veg); }
+.sort-select { padding: 5px 7px; font-size: 12px; }
+
+#scanItems .product-card { cursor: pointer; }
+#scanItems .product-card.is-active { border-color: var(--veg); box-shadow: 0 0 0 1px var(--veg); }
+#scanItems .product-card:not(.is-active) .card-qr,
+#scanItems .product-card:not(.is-active) .card-needs-sku {
+  opacity: 0.15;
+  filter: blur(4px);
+}
+.active-tag {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--veg);
+  margin-bottom: 2px;
+}
+#scanItems .product-card:not(.is-active) .active-tag { visibility: hidden; }
+
+.scan-item-qty { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+.scan-item-qty input {
+  width: 52px;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px;
+  font-size: 12.5px;
+  color: var(--text);
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.scan-item-qty select { padding: 5px 4px; font-size: 11px; }
+
+.scan-item-del {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 3px;
+}
+
+.confirm-inline {
+  grid-column: 1 / -1;
+  background: var(--bg);
+  border: 1px dashed var(--fruit);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+.confirm-inline button { font-size: 11px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+
+.fab-clear {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg) 60%, transparent);
+  padding: 14px 14px 16px;
+}
+.fab-clear button { width: 100%; max-width: 640px; margin: 0 auto; display: block; }
+
+.scanlist-empty-hint { color: var(--text-muted); text-align: center; padding: 40px 20px; font-size: 14px; }
+
+.toggle-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  background: var(--panel-raised);
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  flex: none;
+}
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.toggle-switch.on { background: rgba(217, 164, 65, 0.25); border-color: var(--veg); }
+.toggle-switch.on::after { transform: translateX(16px); background: var(--veg); }
+
+.admin-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px 10px;
+  margin-top: 6px;
+  font-size: 13px;
 }
 
 .star-btn {
@@ -401,6 +572,37 @@ main { padding: 14px; max-width: 640px; margin: 0 auto; }
   font-size: 15px;
   cursor: pointer;
 }
+.btn-danger {
+  background: transparent;
+  border: 1px solid var(--fruit);
+  color: var(--fruit);
+  border-radius: 10px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qty-row { display: flex; gap: 8px; margin-bottom: 18px; }
+.qty-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 16px;
+  color: var(--text);
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.qty-row select {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 8px;
+  font-size: 14px;
+}
+.prefill-note { font-size: 12px; color: var(--veg); margin: -12px 0 16px; }
 
 .qr-large {
   width: 220px;

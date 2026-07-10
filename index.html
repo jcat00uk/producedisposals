@@ -8,30 +8,52 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
 <header class="topbar">
-  <div class="search-row">
-    <input id="searchInput" type="search" placeholder="Search produce…" autocomplete="off">
-    <button id="filterToggle" class="filter-btn" aria-expanded="false">Filters</button>
-    <button id="favToggle" class="icon-btn fav-toggle" aria-pressed="false" title="Show favourites only"><span id="favStar">☆</span><span id="favCount" class="fav-count"></span></button>
-    <span id="dataBadge" class="data-badge" title="">●</span>
-    <button id="adminToggle" class="icon-btn" title="Admin mode" aria-label="Admin mode">⚙</button>
-  </div>
-  <nav class="aisle-tabs" id="aisleTabs"></nav>
-  <div id="storeLabel" class="store-label" hidden></div>
-  <div class="filter-panel" id="filterPanel" hidden>
-    <div class="filter-group">
-      <select id="categorySelect">
-        <option value="">All categories</option>
-      </select>
+  <div id="finderHeader">
+    <div class="search-row">
+      <input id="searchInput" type="search" placeholder="Search produce…" autocomplete="off">
+      <button id="filterToggle" class="filter-btn" aria-expanded="false">Filters</button>
+      <button id="favToggle" class="icon-btn fav-toggle" aria-pressed="false" title="Show favourites only"><span id="favStar">☆</span><span id="favCount" class="fav-count"></span></button>
+      <span id="dataBadge" class="data-badge" title="">●</span>
+      <button id="wakeLockToggle" class="icon-btn" title="Keep screen on while scanning" hidden>🔓</button>
+      <button id="adminToggle" class="icon-btn" title="Admin mode" aria-label="Admin mode">⚙</button>
     </div>
-    <div class="filter-group">
-      <select id="sortSelect">
-        <option value="category">By category</option>
-        <option value="az">A–Z</option>
+    <div class="aisle-tabs-row">
+      <button id="scanListToggle" class="icon-btn" title="Scan list" hidden>
+        📋<span id="scanListBadge" class="badge-count" hidden>0</span>
+      </button>
+      <nav class="aisle-tabs" id="aisleTabs"></nav>
+    </div>
+    <div id="storeLabel" class="store-label" hidden></div>
+    <div class="filter-panel" id="filterPanel" hidden>
+      <div class="filter-group">
+        <select id="categorySelect">
+          <option value="">All categories</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <select id="sortSelect">
+          <option value="category">By category</option>
+          <option value="az">A–Z</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div id="scanListHeader" hidden>
+    <div class="search-row" style="justify-content:space-between;">
+      <button id="scanListBack" class="icon-btn" title="Back to finder" aria-label="Back to finder">←</button>
+      <strong style="font-family:var(--font-display); text-transform:uppercase; letter-spacing:0.5px; font-size:14px;">Scan list</strong>
+      <button id="scanShareBtn" class="icon-btn" title="Share list as image" aria-label="Share list as image">📤</button>
+    </div>
+    <div class="scanlist-subheader">
+      <span class="scanlist-progress"><b id="scanActiveIdx">0</b> of <span id="scanTotalCount">0</span></span>
+      <select id="scanSortMode" class="sort-select">
+        <option value="added">Sort: order added</option>
+        <option value="aisle">Sort: by aisle</option>
       </select>
     </div>
   </div>
@@ -41,6 +63,14 @@
   <div id="productList" class="product-list"></div>
   <p id="emptyState" class="empty-state" hidden>No produce matches that search.</p>
 </main>
+
+<main id="scanListContent" hidden>
+  <div id="scanItems" class="product-list"></div>
+  <p id="scanListEmpty" class="scanlist-empty-hint" hidden>Your scan list is empty — tap + on any item to add it.</p>
+</main>
+<div id="scanClearBar" class="fab-clear" hidden>
+  <button id="scanClearAllBtn" class="btn-danger">Clear all</button>
+</div>
 
 <!-- Enlarged QR for easier handset scanning -->
 <div id="qrModal" class="modal" hidden>
@@ -52,6 +82,54 @@
     <div id="qrModalCode" class="qr-large"></div>
     <div class="modal-actions">
       <button id="qrModalClose" class="btn-ghost">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / edit scan list item -->
+<div id="scanAddModal" class="modal" hidden>
+  <div class="modal-card">
+    <img id="scanAddImg" class="modal-img" alt="">
+    <p class="modal-eyebrow" id="scanAddCategory">Category</p>
+    <h2 id="scanAddName">Product name</h2>
+    <p class="modal-sub" id="scanAddSku">SKU</p>
+    <p class="prefill-note" id="scanAddPrefill" hidden>Already on your list — editing saved quantity</p>
+    <div class="qty-row">
+      <input id="scanAddQty" type="number" min="0" step="1" inputmode="numeric" value="1">
+      <select id="scanAddUnit">
+        <option value="units">units</option>
+        <option value="cases">cases</option>
+        <option value="kg">kg</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button id="scanAddSave" class="btn-primary">Save to scan list</button>
+      <button id="scanAddRemove" class="btn-danger" hidden>Remove from list</button>
+      <button id="scanAddCancel" class="btn-ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scan list feature toggle-off warning -->
+<div id="scanListFeatureWarnModal" class="modal" hidden>
+  <div class="modal-card">
+    <h2>Turn off scan list?</h2>
+    <p class="modal-sub" id="scanListFeatureWarnSub">This deletes the current scan list — can't be undone.</p>
+    <div class="modal-actions">
+      <button id="scanListFeatureWarnConfirm" class="btn-danger">Turn off &amp; delete list</button>
+      <button id="scanListFeatureWarnCancel" class="btn-ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Clear scan list confirm -->
+<div id="scanClearModal" class="modal" hidden>
+  <div class="modal-card">
+    <h2>Clear the whole list?</h2>
+    <p class="modal-sub" id="scanClearModalSub">This removes every item and can't be undone.</p>
+    <div class="modal-actions">
+      <button id="scanClearConfirm" class="btn-danger">Clear all</button>
+      <button id="scanClearCancel" class="btn-ghost">Cancel</button>
     </div>
   </div>
 </div>
@@ -82,6 +160,10 @@
     <input id="storeName" type="text" class="admin-store-input" placeholder="Store name">
     <input id="storeNumber" type="text" class="admin-store-input admin-store-input-narrow" inputmode="numeric" placeholder="Store #">
   </div>
+  <div class="admin-toggle-row">
+    <span>Scan list feature</span>
+    <div id="scanListFeatureToggle" class="toggle-switch"></div>
+  </div>
   <div class="admin-bar-row">
     <a href="aisle-editor.html" target="_blank" rel="noopener" class="admin-file-btn">Open aisle editor…</a>
     <label class="admin-file-btn">
@@ -96,6 +178,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="app.js?v=5"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

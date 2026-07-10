@@ -122,12 +122,79 @@ external dependencies. Has:
    architecture — flagged to the user already, hasn't been asked for
    explicitly, don't build it unprompted.
 
+## Scan list ("bag now, scan later" workflow)
+
+Added 2026-07-10. Lets staff walk the floor bagging disposals, logging a
+quantity against each item on their phone as they go, then later scan
+every item in one pass with the handset — instead of round-tripping to
+the handset per item.
+
+- **Data**: `cratelog_scanlist` (array of `{sku, qty, unit, addedAt}`),
+  `cratelog_scanlist_sort` (`'added' | 'aisle'`), `cratelog_scanlist_enabled`
+  (admin on/off) — all device-local `localStorage`, same reasoning as
+  favourites/hidden: never part of the shared/exported `data.json`.
+  Entries join against `DATA.products` by `sku` at render time
+  (`getScanListProducts()` in `app.js`); a deleted product just quietly
+  drops out of the list, no cleanup needed.
+- **Add**: a "+" button under each card's QR (`.card-actions` wrapper,
+  `openScanAddModal()`) opens a popup — qty + unit (units/cases/kg)
+  dropdown, auto-focused, prefills if already on the list. Switching away
+  from kg rounds the quantity to the nearest whole number.
+- **View**: 📋 icon (with count badge) next to the aisle pills opens a
+  full-list view reusing the same `.product-card` layout as the finder.
+  Tapping a card makes it "active" (green border, sharp QR); every other
+  card's QR dims/blurs — same visual treatment as the existing hold-to-lock
+  scan-lock, but tap-triggered here since picking the next item is the
+  primary action in this view, not an occasional safety measure. Delete
+  and Clear all both confirm, then give a 6s Undo toast
+  (`showActionToast`). Sort (order-added vs. by-aisle) persists.
+- **Share as image**: 📤 in the scan-list header renders a clean, unblurred
+  off-screen copy of the list via `html2canvas` (CDN, same pattern as
+  QRCode.js) and either opens the native share sheet
+  (`navigator.share` with a file) or falls back to a PNG download.
+  **Deliberately excludes product photos** — see "Known sharp edge" below.
+- **Admin**: toggle in the admin bar enables/disables the whole feature
+  (hides the + buttons and the 📋 icon). Turning it off always warns first
+  and wipes `cratelog_scanlist` on confirm — no soft-disable state.
+- **Wake lock**: 🔓/🔒 next to the admin icon calls the Wake Lock API to
+  keep the screen on during a scan run (button hides itself entirely if
+  `'wakeLock' in navigator` is false).
+
+**Known sharp edge — stale event race on re-render.** Any full
+`renderScanListView()` rebuild (triggered by unit switch, delete, clear,
+or sort change) replaces every card's DOM node. If a qty `<input>` still
+had an uncommitted edit when that happened, a browser-native
+blur-triggered `change` event could fire *after* the rebuild and silently
+clobber the value the rebuild just committed — and `element.isConnected`
+was **not** a reliable guard against this (it read `true` even after the
+node's card had been replaced, in testing). Fixed with a render-generation
+counter (`scanRenderGen`, bumped every rebuild, each card closes over the
+generation it was built in and no-ops if stale) — see `buildScanCard()` in
+`app.js`. Found by scripting the actual interaction with Playwright, not
+by inspection — worth re-running that kind of test if this area changes.
+
+**Known sharp edge — product photos can't go in the shared image.**
+Verified `assets.sainsburys-groceries.co.uk` sends no
+`Access-Control-Allow-Origin` header. A plain `<img>` can still *display*
+those photos fine (that's unaffected, still used everywhere else), but
+`html2canvas` needs to read pixel data to export a canvas, and a
+cross-origin image without CORS headers taints the canvas the moment it's
+drawn — `toBlob()`/`toDataURL()` then throws for the *whole* canvas, not
+just that element. No fix available without routing images through a
+server this project controls, which breaks the static/no-backend
+constraint below. This will bite the parked **send-for-review** feature
+too if it ever needs to bundle an image — worth remembering before
+attempting it.
+
 ## Things NOT yet built (mentioned but out of scope so far)
 
 - Offline service worker / caching
 - The actual handset scanning/logging app (explicitly a separate system,
   not this tool's job)
 - Any backend/server component
+- Diff tool in `aisle-editor.html`, send-for-review (Web Share + mailto),
+  multi-store support — all discussed and sequenced Jul 8, 2026, none
+  started yet
 
 ## Style conventions used so far
 
@@ -139,6 +206,12 @@ external dependencies. Has:
 - `[hidden] { display: none !important; }` is load-bearing — without it,
   elements using `display: flex` in their own class rule won't respect the
   `hidden` attribute (bit us once already, caused a fullscreen overlay bug)
+- `.topbar` itself stays full-bleed (background/border look right edge to
+  edge on wide screens) but `#finderHeader`/`#scanListHeader` cap at 640px
+  and center, matching `main`'s existing content-column width
+- `style.css`/`app.js` are cache-busted with a `?v=N` query string in
+  `index.html` — bump it whenever either file changes, browsers hold onto
+  stale copies otherwise (currently `v=8`)
 
 ## Suggested first task in Claude Code
 

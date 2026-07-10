@@ -159,6 +159,33 @@ refresh. Tap the SKU text on any card; a small toast confirms the copy.
 Switched to the more consistent URL format:
 `https://assets.sainsburys-groceries.co.uk/gol/{sku}/image.jpg`
 
+## Scan list (added 2026-07-10)
+
+For bagging disposals as you walk the floor, then scanning them all in
+one pass with the handset afterwards, instead of round-tripping per item.
+
+- Tap **+** under any product's QR to add it to your scan list with a
+  quantity (units, cases, or kg). Tap it again on something already on
+  the list and it prefills with the saved quantity so you can edit it.
+- The 📋 icon next to the aisle pills opens the list — tap any item to
+  make it "active" (its QR sharpens, everyone else's dims) so a handheld
+  scanner doesn't pick up the wrong item by accident. Edit quantities
+  inline, delete with a confirm + 6-second Undo, or Clear all once
+  you're done scanning (also confirms first).
+- **📤 shares the list as an image** — a clean checklist (name, SKU,
+  quantity, QR) you can send to someone else, e.g. so they know what to
+  expect before you hand off the handset. Deliberately **doesn't include
+  product photos**: they're served from an external CDN
+  (`assets.sainsburys-groceries.co.uk`) that doesn't allow cross-origin
+  pixel access, so they can't be drawn into an exportable image without
+  routing them through a server this project doesn't have. Photos still
+  show up everywhere else in the app as normal — this only affects the
+  exported image.
+- The scan list is entirely **device-local**, same as favourites — never
+  part of the shared/exported `data.json`.
+- Admin mode has a toggle to turn the whole feature off — hides the +
+  buttons and the 📋 icon, and wipes any saved list (always warns first).
+
 ## SKU coverage
 
 87 of 92 products have real SKUs (from the barcode PDF). Still missing —

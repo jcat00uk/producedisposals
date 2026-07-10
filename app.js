@@ -665,6 +665,9 @@ const FAV_KEY = 'cratelog_favourites';
 const STORE_KEY = 'cratelog_store';
 const HIDDEN_KEY = 'cratelog_hidden';
 const HINT_KEY = 'cratelog_hint_seen';
+const SCANLIST_KEY = 'cratelog_scanlist';
+const SCANLIST_SORT_KEY = 'cratelog_scanlist_sort';
+const SCANLIST_ENABLED_KEY = 'cratelog_scanlist_enabled';
 const ICONS = { Salad: '🥗', Veg: '🥕', Fruit: '🍎' };
 const DEFAULT_ICON = '🧺';
 
@@ -745,6 +748,56 @@ function toggleHidden(id) {
   render();
 }
 
+// Scan list — device-local "bag now, scan later" list, entirely separate
+// from the shared/exported data.json (same reasoning as favourites/hidden).
+// Entries are {sku, qty, unit, addedAt}, joined against DATA.products by
+// sku at render time so a deleted product just quietly drops out.
+let scanList = loadJSON(SCANLIST_KEY, []);
+function saveScanList() { saveJSON(SCANLIST_KEY, scanList); }
+
+let scanListSort = localStorage.getItem(SCANLIST_SORT_KEY) || 'added';
+function saveScanListSort() { localStorage.setItem(SCANLIST_SORT_KEY, scanListSort); }
+
+let scanListEnabled = loadJSON(SCANLIST_ENABLED_KEY, true);
+function saveScanListEnabled() { saveJSON(SCANLIST_ENABLED_KEY, scanListEnabled); }
+
+function findScanEntry(sku) { return scanList.find(e => e.sku === sku); }
+
+function upsertScanEntry(sku, qty, unit) {
+  const existing = findScanEntry(sku);
+  if (existing) {
+    existing.qty = qty;
+    existing.unit = unit;
+  } else {
+    scanList.push({ sku, qty, unit, addedAt: Date.now() });
+  }
+  saveScanList();
+}
+
+function removeScanEntry(sku) {
+  scanList = scanList.filter(e => e.sku !== sku);
+  saveScanList();
+}
+
+const AISLE_SORT_ORDER = { Salad: 0, Veg: 1, Fruit: 2 };
+
+// scan list entries joined to their product record, in the current sort
+// order; entries whose product no longer exists are dropped
+function getScanListProducts() {
+  const bySku = new Map(DATA.products.map(p => [p.sku, p]));
+  const list = scanList
+    .map(e => {
+      const p = bySku.get(e.sku);
+      if (!p) return null;
+      return { ...p, aisle: resolveAisle(p), qty: e.qty, unit: e.unit };
+    })
+    .filter(Boolean);
+  if (scanListSort === 'aisle') {
+    list.sort((a, b) => (AISLE_SORT_ORDER[a.aisle] ?? 9) - (AISLE_SORT_ORDER[b.aisle] ?? 9));
+  }
+  return list;
+}
+
 function resolveAisle(p) {
   if (p.category) {
     const cat = DATA.categories.find(c => c.name === p.category);
@@ -776,6 +829,7 @@ let state = {
   sort: 'category',
   favOnly: false,
   adminMode: false,
+  view: 'finder', // 'finder' | 'scanlist'
 };
 
 /* ---------------- DOM refs ---------------- */
@@ -791,6 +845,7 @@ const els = {
   favToggle: document.getElementById('favToggle'),
   favStar: document.getElementById('favStar'),
   favCount: document.getElementById('favCount'),
+  content: document.getElementById('content'),
   productList: document.getElementById('productList'),
   emptyState: document.getElementById('emptyState'),
   adminToggle: document.getElementById('adminToggle'),
@@ -819,6 +874,46 @@ const els = {
   adminSku: document.getElementById('adminSku'),
   adminSave: document.getElementById('adminSave'),
   adminCancel: document.getElementById('adminCancel'),
+
+  wakeLockToggle: document.getElementById('wakeLockToggle'),
+
+  finderHeader: document.getElementById('finderHeader'),
+  scanListHeader: document.getElementById('scanListHeader'),
+  scanListToggle: document.getElementById('scanListToggle'),
+  scanListBadge: document.getElementById('scanListBadge'),
+  scanListBack: document.getElementById('scanListBack'),
+  scanShareBtn: document.getElementById('scanShareBtn'),
+  scanActiveIdx: document.getElementById('scanActiveIdx'),
+  scanTotalCount: document.getElementById('scanTotalCount'),
+  scanSortMode: document.getElementById('scanSortMode'),
+  scanListContent: document.getElementById('scanListContent'),
+  scanItems: document.getElementById('scanItems'),
+  scanListEmpty: document.getElementById('scanListEmpty'),
+  scanClearBar: document.getElementById('scanClearBar'),
+  scanClearAllBtn: document.getElementById('scanClearAllBtn'),
+
+  scanAddModal: document.getElementById('scanAddModal'),
+  scanAddImg: document.getElementById('scanAddImg'),
+  scanAddCategory: document.getElementById('scanAddCategory'),
+  scanAddName: document.getElementById('scanAddName'),
+  scanAddSku: document.getElementById('scanAddSku'),
+  scanAddPrefill: document.getElementById('scanAddPrefill'),
+  scanAddQty: document.getElementById('scanAddQty'),
+  scanAddUnit: document.getElementById('scanAddUnit'),
+  scanAddSave: document.getElementById('scanAddSave'),
+  scanAddRemove: document.getElementById('scanAddRemove'),
+  scanAddCancel: document.getElementById('scanAddCancel'),
+
+  scanClearModal: document.getElementById('scanClearModal'),
+  scanClearModalSub: document.getElementById('scanClearModalSub'),
+  scanClearConfirm: document.getElementById('scanClearConfirm'),
+  scanClearCancel: document.getElementById('scanClearCancel'),
+
+  scanListFeatureToggle: document.getElementById('scanListFeatureToggle'),
+  scanListFeatureWarnModal: document.getElementById('scanListFeatureWarnModal'),
+  scanListFeatureWarnSub: document.getElementById('scanListFeatureWarnSub'),
+  scanListFeatureWarnConfirm: document.getElementById('scanListFeatureWarnConfirm'),
+  scanListFeatureWarnCancel: document.getElementById('scanListFeatureWarnCancel'),
 };
 
 let pendingProductId = null;
@@ -1096,10 +1191,14 @@ function buildCard(p) {
     toggleHidden(p.id);
   });
 
+  const actions = document.createElement('div');
+  actions.className = 'card-actions';
+  card.appendChild(actions);
+
   if (p.sku) {
     const qrWrap = document.createElement('div');
     qrWrap.className = 'card-qr';
-    card.appendChild(qrWrap);
+    actions.appendChild(qrWrap);
     // eslint-disable-next-line no-undef
     new QRCode(qrWrap, { text: p.sku, width: 80, height: 80, colorDark: '#1B211D', colorLight: '#ffffff' });
     attachScanLock(card);
@@ -1107,7 +1206,20 @@ function buildCard(p) {
     const needsSku = document.createElement('div');
     needsSku.className = 'card-needs-sku';
     needsSku.textContent = 'Add SKU';
-    card.appendChild(needsSku);
+    actions.appendChild(needsSku);
+  }
+
+  if (scanListEnabled && p.sku) {
+    const inList = !!findScanEntry(p.sku);
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-btn' + (inList ? ' in-list' : '');
+    addBtn.textContent = inList ? '✓' : '+';
+    addBtn.setAttribute('aria-label', 'Add to scan list');
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openScanAddModal(p.sku);
+    });
+    actions.appendChild(addBtn);
   }
 
   card.addEventListener('click', (e) => {
@@ -1191,6 +1303,67 @@ function openQrModal(id) {
 }
 function closeQrModal() { els.qrModal.hidden = true; }
 
+/* ---------------- Scan list: add/edit popup ---------------- */
+
+let pendingScanSku = null;
+
+function openScanAddModal(sku) {
+  const p = DATA.products.find(x => x.sku === sku);
+  if (!p) return;
+  pendingScanSku = sku;
+  const existing = findScanEntry(sku);
+
+  els.scanAddCategory.textContent = p.category || 'Uncategorised';
+  els.scanAddName.textContent = p.name;
+  els.scanAddSku.textContent = `SKU ${p.sku}`;
+  els.scanAddImg.src = imageUrl(p.sku);
+  els.scanAddImg.style.display = '';
+  els.scanAddImg.onerror = () => { els.scanAddImg.style.display = 'none'; };
+
+  const qty = existing ? existing.qty : 1;
+  const unit = existing ? existing.unit : 'units';
+  els.scanAddQty.value = qty;
+  els.scanAddUnit.value = unit;
+  els.scanAddQty.step = unit === 'kg' ? '0.1' : '1';
+  els.scanAddQty.inputMode = unit === 'kg' ? 'decimal' : 'numeric';
+  els.scanAddPrefill.hidden = !existing;
+  els.scanAddRemove.hidden = !existing;
+
+  els.scanAddModal.hidden = false;
+  requestAnimationFrame(() => { els.scanAddQty.focus(); els.scanAddQty.select(); });
+}
+function closeScanAddModal() {
+  els.scanAddModal.hidden = true;
+  pendingScanSku = null;
+}
+
+els.scanAddUnit.addEventListener('change', () => {
+  const isKg = els.scanAddUnit.value === 'kg';
+  els.scanAddQty.step = isKg ? '0.1' : '1';
+  els.scanAddQty.inputMode = isKg ? 'decimal' : 'numeric';
+  if (!isKg) {
+    const rounded = Math.round(parseFloat(els.scanAddQty.value) || 0);
+    els.scanAddQty.value = Math.max(rounded, 0);
+  }
+});
+els.scanAddCancel.addEventListener('click', closeScanAddModal);
+els.scanAddModal.addEventListener('click', (e) => { if (e.target === els.scanAddModal) closeScanAddModal(); });
+els.scanAddSave.addEventListener('click', () => {
+  if (!pendingScanSku) return;
+  const qty = parseFloat(els.scanAddQty.value) || 0;
+  upsertScanEntry(pendingScanSku, qty, els.scanAddUnit.value);
+  closeScanAddModal();
+  renderScanListBadge();
+  renderList();
+});
+els.scanAddRemove.addEventListener('click', () => {
+  if (!pendingScanSku) return;
+  removeScanEntry(pendingScanSku);
+  closeScanAddModal();
+  renderScanListBadge();
+  renderList();
+});
+
 /* ---------------- Admin edit ---------------- */
 
 function populateAdminCategorySelect() {
@@ -1242,6 +1415,354 @@ function saveAdminEdit() {
   render();
 }
 
+/* ---------------- Scan list: list view ---------------- */
+
+let activeScanSku = null;
+
+function renderScanListBadge() {
+  const count = scanList.length;
+  els.scanListToggle.hidden = !scanListEnabled;
+  els.scanListBadge.hidden = count === 0;
+  els.scanListBadge.textContent = count;
+}
+
+function openScanListView() {
+  state.view = 'scanlist';
+  els.finderHeader.hidden = true;
+  els.scanListHeader.hidden = false;
+  els.content.hidden = true;
+  els.scanListContent.hidden = false;
+  renderScanListView();
+}
+function closeScanListView() {
+  state.view = 'finder';
+  els.finderHeader.hidden = false;
+  els.scanListHeader.hidden = true;
+  els.content.hidden = false;
+  els.scanListContent.hidden = true;
+  els.scanClearBar.hidden = true;
+  render();
+}
+
+function renderScanListView() {
+  const list = getScanListProducts();
+  els.scanTotalCount.textContent = list.length;
+  els.scanListEmpty.hidden = list.length !== 0;
+  els.scanClearBar.hidden = list.length === 0;
+
+  if (!list.find(p => p.sku === activeScanSku)) {
+    activeScanSku = list[0] ? list[0].sku : null;
+  }
+
+  scanRenderGen++;
+  const gen = scanRenderGen;
+  els.scanItems.innerHTML = '';
+  list.forEach(p => els.scanItems.appendChild(buildScanCard(p, gen)));
+
+  const activeIdx = list.findIndex(p => p.sku === activeScanSku);
+  els.scanActiveIdx.textContent = activeIdx === -1 ? 0 : activeIdx + 1;
+}
+
+// bumped on every renderScanListView() rebuild; a card's qty-input can get
+// a native blur-triggered 'change' event after its own re-render already
+// replaced it (observed via testing — the stale event's isConnected can
+// still read true depending on timing, so a plain isConnected guard isn't
+// reliable), so each card checks its own build generation against the
+// current one before writing
+let scanRenderGen = 0;
+
+function buildScanCard(p, gen) {
+  const card = document.createElement('div');
+  card.className = 'product-card' + (p.sku === activeScanSku ? ' is-active' : '');
+  card.dataset.color = p.aisle;
+
+  const img = document.createElement('img');
+  img.className = 'card-img';
+  img.src = imageUrl(p.sku);
+  img.alt = p.name;
+  img.onerror = () => { img.replaceWith(placeholderIcon(p.aisle)); };
+  card.appendChild(img);
+
+  const body = document.createElement('div');
+  body.className = 'card-body';
+  body.innerHTML = `
+    <span class="active-tag">Active — scan now</span>
+    <div class="card-name">${escapeHtml(p.name)}</div>
+    <span class="card-sku">SKU ${escapeHtml(p.sku)}</span>
+    <div class="scan-item-qty">
+      <input type="number" class="scan-qty-input" value="${p.qty}" min="0" step="${p.unit === 'kg' ? '0.1' : '1'}" inputmode="${p.unit === 'kg' ? 'decimal' : 'numeric'}">
+      <select class="scan-unit-select">
+        <option value="units" ${p.unit === 'units' ? 'selected' : ''}>units</option>
+        <option value="cases" ${p.unit === 'cases' ? 'selected' : ''}>cases</option>
+        <option value="kg" ${p.unit === 'kg' ? 'selected' : ''}>kg</option>
+      </select>
+    </div>
+  `;
+  card.appendChild(body);
+
+  const actions = document.createElement('div');
+  actions.className = 'card-actions';
+  const qrWrap = document.createElement('div');
+  qrWrap.className = 'card-qr';
+  actions.appendChild(qrWrap);
+  // eslint-disable-next-line no-undef
+  new QRCode(qrWrap, { text: p.sku, width: 80, height: 80, colorDark: '#1B211D', colorLight: '#ffffff' });
+  const delBtn = document.createElement('button');
+  delBtn.className = 'scan-item-del';
+  delBtn.textContent = '🗑';
+  delBtn.setAttribute('aria-label', 'Remove from scan list');
+  actions.appendChild(delBtn);
+  card.appendChild(actions);
+
+  const qtyInput = body.querySelector('.scan-qty-input');
+  const unitSelect = body.querySelector('.scan-unit-select');
+  qtyInput.addEventListener('click', (e) => e.stopPropagation());
+  qtyInput.addEventListener('change', () => {
+    if (gen !== scanRenderGen) return;
+    const entry = findScanEntry(p.sku);
+    if (!entry) return;
+    entry.qty = parseFloat(qtyInput.value) || 0;
+    saveScanList();
+  });
+  unitSelect.addEventListener('click', (e) => e.stopPropagation());
+  unitSelect.addEventListener('change', () => {
+    const entry = findScanEntry(p.sku);
+    if (!entry) return;
+    const isKg = unitSelect.value === 'kg';
+    entry.unit = unitSelect.value;
+    if (!isKg) entry.qty = Math.max(Math.round(parseFloat(entry.qty) || 0), 0);
+    saveScanList();
+    renderScanListView();
+  });
+
+  delBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    confirmScanDelete(card, p);
+  });
+
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.scan-item-qty, .scan-item-del, .scan-confirm-inline')) return;
+    activeScanSku = p.sku;
+    renderScanListView();
+  });
+
+  return card;
+}
+
+function confirmScanDelete(card, p) {
+  if (card.querySelector('.scan-confirm-inline')) return;
+  const row = document.createElement('div');
+  row.className = 'confirm-inline scan-confirm-inline';
+  const label = p.unit === 'kg' ? `${p.qty}kg` : `${p.qty} ${p.unit}`;
+  row.innerHTML = `<span>Remove ${escapeHtml(label)} — ${escapeHtml(p.name)}?</span>
+    <span style="display:flex;gap:6px;"><button class="btn-danger" data-do>Remove</button><button class="btn-ghost" data-undo>Cancel</button></span>`;
+  card.appendChild(row);
+  row.querySelector('[data-undo]').addEventListener('click', (e) => { e.stopPropagation(); row.remove(); });
+  row.querySelector('[data-do]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const removedIdx = scanList.findIndex(entry => entry.sku === p.sku);
+    const [removedEntry] = scanList.splice(removedIdx, 1);
+    saveScanList();
+    renderScanListBadge();
+    renderScanListView();
+    showActionToast(`Removed ${p.name}`, 'Undo', () => {
+      scanList.splice(removedIdx, 0, removedEntry);
+      saveScanList();
+      activeScanSku = removedEntry.sku;
+      renderScanListBadge();
+      renderScanListView();
+    });
+  });
+}
+
+els.scanListToggle.addEventListener('click', openScanListView);
+els.scanListBack.addEventListener('click', closeScanListView);
+
+els.scanSortMode.addEventListener('change', () => {
+  scanListSort = els.scanSortMode.value;
+  saveScanListSort();
+  renderScanListView();
+});
+
+els.scanClearAllBtn.addEventListener('click', () => {
+  els.scanClearModalSub.textContent = `This removes all ${scanList.length} items and can't be undone.`;
+  els.scanClearModal.hidden = false;
+});
+els.scanClearCancel.addEventListener('click', () => els.scanClearModal.hidden = true);
+els.scanClearModal.addEventListener('click', (e) => { if (e.target === els.scanClearModal) els.scanClearModal.hidden = true; });
+els.scanClearConfirm.addEventListener('click', () => {
+  const backup = scanList;
+  scanList = [];
+  saveScanList();
+  els.scanClearModal.hidden = true;
+  renderScanListBadge();
+  renderScanListView();
+  showActionToast(`Cleared ${backup.length} items`, 'Undo', () => {
+    scanList = backup;
+    saveScanList();
+    renderScanListBadge();
+    renderScanListView();
+  });
+});
+
+/* ---------------- Scan list: share as image ---------------- */
+
+// Builds a clean off-screen copy of the list for html2canvas — no
+// blur/active state (that's a scanning aid, not something worth sharing)
+// and no product photos: those come from an external CDN of unknown CORS
+// policy, and skipping them keeps generation instant and CORS-proof.
+function buildScanShareView(list) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed; left:-9999px; top:0; width:420px; background:#1B211D; color:#F2EEE4; font-family:Inter,sans-serif; padding:20px;';
+
+  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const storeLine = [storeInfo.name, storeInfo.number ? `#${storeInfo.number}` : ''].filter(Boolean).join(' ');
+  const subLine = [storeLine, dateStr, `${list.length} item${list.length === 1 ? '' : 's'}`].filter(Boolean).join(' — ');
+
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <div style="font-family:Oswald,sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:20px; font-weight:700;">Scan list</div>
+    <div style="color:#9AA69C; font-size:13px; margin-bottom:14px;">${escapeHtml(subLine)}</div>
+  `;
+  wrap.appendChild(header);
+
+  list.forEach(p => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #3A443C;';
+    const qtyLabel = p.unit === 'kg' ? `${p.qty}kg` : `${p.qty} ${p.unit}`;
+    const text = document.createElement('div');
+    text.style.cssText = 'flex:1; min-width:0;';
+    text.innerHTML = `
+      <div style="font-weight:600; font-size:14px;">${escapeHtml(p.name)}</div>
+      <div style="color:#9AA69C; font-size:11px; font-family:'IBM Plex Mono',monospace; margin-top:2px;">SKU ${escapeHtml(p.sku)} · ${escapeHtml(qtyLabel)}</div>
+    `;
+    row.appendChild(text);
+    const qr = document.createElement('div');
+    qr.style.cssText = 'width:56px; height:56px; background:#fff; border-radius:6px; padding:4px; flex:none;';
+    row.appendChild(qr);
+    wrap.appendChild(row);
+    // eslint-disable-next-line no-undef
+    new QRCode(qr, { text: p.sku, width: 48, height: 48, colorDark: '#1B211D', colorLight: '#ffffff' });
+  });
+
+  document.body.appendChild(wrap);
+  return wrap;
+}
+
+async function shareScanListImage() {
+  const list = getScanListProducts();
+  if (!list.length) { showToast('Scan list is empty'); return; }
+  if (typeof html2canvas !== 'function') { showToast("Couldn't reach the image library — check your connection"); return; }
+
+  const shareView = buildScanShareView(list);
+  // let the QR canvases actually paint before rasterizing
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  let blob;
+  try {
+    // eslint-disable-next-line no-undef
+    const canvas = await html2canvas(shareView, { backgroundColor: '#1B211D', scale: 2 });
+    blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  } catch (e) {
+    shareView.remove();
+    showToast('Could not generate the image');
+    return;
+  }
+  shareView.remove();
+  if (!blob) { showToast('Could not generate the image'); return; }
+
+  const file = new File([blob], 'scan-list.png', { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Scan list' });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // user backed out of the share sheet
+      // fall through to a plain download
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'scan-list.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Image downloaded');
+}
+
+els.scanShareBtn.addEventListener('click', shareScanListImage);
+
+/* ---------------- Scan list: admin enable/disable ---------------- */
+
+function updateScanListFeatureToggle() {
+  els.scanListFeatureToggle.classList.toggle('on', scanListEnabled);
+  renderScanListBadge();
+}
+
+els.scanListFeatureToggle.addEventListener('click', () => {
+  if (scanListEnabled) {
+    els.scanListFeatureWarnSub.textContent = scanList.length
+      ? `There are ${scanList.length} items on the current scan list. Turning this feature off deletes them — this can't be undone.`
+      : `Turning this feature off removes the + button and scan list icon for everyone using this device.`;
+    els.scanListFeatureWarnModal.hidden = false;
+  } else {
+    scanListEnabled = true;
+    saveScanListEnabled();
+    updateScanListFeatureToggle();
+    renderList();
+  }
+});
+els.scanListFeatureWarnCancel.addEventListener('click', () => els.scanListFeatureWarnModal.hidden = true);
+els.scanListFeatureWarnModal.addEventListener('click', (e) => { if (e.target === els.scanListFeatureWarnModal) els.scanListFeatureWarnModal.hidden = true; });
+els.scanListFeatureWarnConfirm.addEventListener('click', () => {
+  scanListEnabled = false;
+  scanList = [];
+  saveScanListEnabled();
+  saveScanList();
+  updateScanListFeatureToggle();
+  els.scanListFeatureWarnModal.hidden = true;
+  if (state.view === 'scanlist') closeScanListView();
+  else renderList();
+});
+
+/* ---------------- Wake lock (keep screen on while scanning) ---------------- */
+
+let wakeLock = null;
+let wakeLockOn = false;
+
+async function requestWakeLock() {
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => {
+      wakeLock = null;
+    });
+  } catch (e) {
+    // e.g. battery saver mode blocked it — leave the toggle off
+    wakeLockOn = false;
+    updateWakeLockButton();
+  }
+}
+function updateWakeLockButton() {
+  els.wakeLockToggle.textContent = wakeLockOn ? '🔒' : '🔓';
+  els.wakeLockToggle.classList.toggle('active', wakeLockOn);
+  els.wakeLockToggle.title = wakeLockOn ? 'Screen will stay on' : 'Keep screen on while scanning';
+}
+
+if ('wakeLock' in navigator) {
+  els.wakeLockToggle.hidden = false;
+  els.wakeLockToggle.addEventListener('click', async () => {
+    wakeLockOn = !wakeLockOn;
+    updateWakeLockButton();
+    if (wakeLockOn) await requestWakeLock();
+    else if (wakeLock) await wakeLock.release();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (wakeLockOn && document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+  });
+}
+
 /* ---------------- Wire up events ---------------- */
 
 els.searchInput.addEventListener('input', (e) => {
@@ -1270,6 +1791,7 @@ els.adminToggle.addEventListener('click', () => {
   if (state.adminMode) {
     els.storeName.value = storeInfo.name || '';
     els.storeNumber.value = storeInfo.number || '';
+    updateScanListFeatureToggle();
   }
   renderList();
 });
@@ -1346,11 +1868,13 @@ els.syncBtn.addEventListener('click', () => {
 });
 
 els.sortSelect.value = state.sort;
+els.scanSortMode.value = scanListSort;
 
 window.addEventListener('DOMContentLoaded', async () => {
   await initData();
   state.aisle = DATA.aisles[0] || 'All';
   renderAisleTabs();
+  renderScanListBadge();
   render();
 
   if (dataSource === 'local' && publishedData && JSON.stringify(DATA) !== JSON.stringify(publishedData)) {
