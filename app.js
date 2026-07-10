@@ -883,6 +883,7 @@ const els = {
   scanListBadge: document.getElementById('scanListBadge'),
   scanListBack: document.getElementById('scanListBack'),
   scanShareBtn: document.getElementById('scanShareBtn'),
+  scanShareInteractiveBtn: document.getElementById('scanShareInteractiveBtn'),
   scanActiveIdx: document.getElementById('scanActiveIdx'),
   scanTotalCount: document.getElementById('scanTotalCount'),
   scanSortMode: document.getElementById('scanSortMode'),
@@ -1693,6 +1694,190 @@ async function shareScanListImage() {
 }
 
 els.scanShareBtn.addEventListener('click', shareScanListImage);
+
+/* ---------------- Scan list: share as interactive HTML ---------------- */
+
+const QRCODE_LIB_URL = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+let qrcodeLibSourceCache = null;
+
+// Fetches the same qrcodejs build the page already loaded, so the exported
+// file can generate its own QR codes offline with no dependency on the CDN
+// still being reachable on whatever device opens it later.
+async function getQrcodeLibSource() {
+  if (qrcodeLibSourceCache) return qrcodeLibSourceCache;
+  const res = await fetch(QRCODE_LIB_URL);
+  if (!res.ok) throw new Error('qrcode lib fetch failed');
+  qrcodeLibSourceCache = await res.text();
+  return qrcodeLibSourceCache;
+}
+
+function buildInteractiveScanExportHtml(list, qrcodeLibSource) {
+  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const storeLine = [storeInfo.name, storeInfo.number ? `#${storeInfo.number}` : ''].filter(Boolean).join(' ');
+  const subLine = [storeLine, dateStr, `${list.length} item${list.length === 1 ? '' : 's'}`].filter(Boolean).join(' — ');
+  const items = list.map(p => ({ name: p.name, sku: p.sku, qty: p.qty, unit: p.unit }));
+  // guards against a stray "</script" in item data breaking out of the embedded JSON
+  const itemsJson = JSON.stringify(items).replace(/<\/script/gi, '<\\/script');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scan list — ${escapeHtml(dateStr)}</title>
+<script>${qrcodeLibSource}</script>
+<style>
+:root{
+  --bg:#1B211D; --panel:#232B24; --panel-raised:#2A332B; --line:#3A443C;
+  --text:#F2EEE4; --text-muted:#9AA69C; --veg:#D9A441; --radius:10px;
+  --font-display:'Oswald',sans-serif; --font-body:'Inter',sans-serif; --font-mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--font-body); display:flex; justify-content:center; padding:24px 12px;
+}
+.sheet{ width:100%; max-width:420px; }
+.head .title{
+  font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px;
+  font-size:22px; font-weight:700;
+}
+.head .sub{ color:var(--text-muted); font-size:13px; margin-top:2px; }
+.head .note{
+  margin-top:10px; padding:10px 12px; background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--radius); font-size:12px; color:var(--text-muted); line-height:1.5;
+}
+.list{ display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+.row{
+  display:flex; align-items:center; gap:12px; padding:10px; background:var(--panel);
+  border:1px solid var(--line); border-radius:var(--radius); cursor:pointer;
+  transition:border-color .15s ease, background .15s ease;
+}
+.row.active{ border-color:var(--veg); background:var(--panel-raised); }
+.row .info{ flex:1; min-width:0; }
+.row .name{ font-weight:600; font-size:14px; }
+.row .meta{
+  color:var(--text-muted); font-size:11px; font-family:var(--font-mono); margin-top:3px;
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+}
+.row .qty-badge{
+  display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border-radius:5px;
+  background:var(--bg); border:1px solid var(--line); font-size:10px;
+}
+.row .qr{
+  width:48px; height:48px; background:#fff; border-radius:6px; padding:4px; flex:none;
+  overflow:hidden; transition:filter .25s ease, opacity .25s ease, transform .25s ease;
+}
+.row .qr canvas, .row .qr img, .row .qr table{
+  display:block; width:100% !important; height:100% !important;
+}
+.list.has-active .row:not(.active) .qr{ filter:blur(4px); opacity:.45; }
+.row.active .qr{ width:120px; height:120px; padding:8px; }
+.row.active{ flex-direction:column; align-items:stretch; text-align:center; }
+.row.active .info{ order:2; }
+.row.active .qr{ order:1; align-self:center; }
+.row.active .meta{ justify-content:center; }
+.lock-tag{
+  display:inline-flex; align-items:center; gap:4px; font-size:10px; color:var(--text-muted);
+  font-family:var(--font-mono);
+}
+.foot{ margin-top:18px; text-align:center; color:var(--text-muted); font-size:11px; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="head">
+    <div class="title">Scan list</div>
+    <div class="sub">${escapeHtml(subLine)}</div>
+    <div class="note">Tap an item to bring up its QR code for scanning. Quantities are locked — this is a snapshot, not a live list.</div>
+  </div>
+  <div class="list" id="list"></div>
+  <div class="foot">Read-only export · generated on device, not synced</div>
+</div>
+<script>
+const items = ${itemsJson};
+const listEl = document.getElementById('list');
+
+items.forEach((p, i) => {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.dataset.index = i;
+  const qtyLabel = p.unit === 'kg' ? \`\${p.qty}kg\` : \`\${p.qty} \${p.unit}\`;
+
+  row.innerHTML = \`
+    <div class="info">
+      <div class="name"></div>
+      <div class="meta">
+        <span class="sku-text"></span>
+        <span class="qty-badge"></span>
+        <span class="lock-tag">🔒 locked</span>
+      </div>
+    </div>
+    <div class="qr"></div>
+  \`;
+  row.querySelector('.name').textContent = p.name;
+  row.querySelector('.sku-text').textContent = 'SKU ' + p.sku;
+  row.querySelector('.qty-badge').textContent = qtyLabel;
+  listEl.appendChild(row);
+
+  // eslint-disable-next-line no-undef
+  new QRCode(row.querySelector('.qr'), {
+    text: p.sku, width: 200, height: 200, colorDark: '#1B211D', colorLight: '#ffffff'
+  });
+
+  row.addEventListener('click', () => {
+    const wasActive = row.classList.contains('active');
+    listEl.querySelectorAll('.row').forEach(r => r.classList.remove('active'));
+    if (!wasActive) {
+      row.classList.add('active');
+      listEl.classList.add('has-active');
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      listEl.classList.remove('has-active');
+    }
+  });
+});
+</script>
+</body>
+</html>`;
+}
+
+async function shareScanListInteractive() {
+  const list = getScanListProducts();
+  if (!list.length) { showToast('Scan list is empty'); return; }
+
+  let qrcodeLibSource;
+  try {
+    qrcodeLibSource = await getQrcodeLibSource();
+  } catch (e) {
+    showToast("Couldn't reach the QR library — check your connection");
+    return;
+  }
+
+  const html = buildInteractiveScanExportHtml(list, qrcodeLibSource);
+  const blob = new Blob([html], { type: 'text/html' });
+  const file = new File([blob], 'scan-list.html', { type: 'text/html' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Scan list' });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'scan-list.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Interactive list downloaded');
+}
+
+els.scanShareInteractiveBtn.addEventListener('click', shareScanListInteractive);
 
 /* ---------------- Scan list: admin enable/disable ---------------- */
 
