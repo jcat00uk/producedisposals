@@ -156,8 +156,30 @@
   "Save to this browser" writes here immediately — if <code>index.html</code> is hosted on
   the <strong>same site</strong>, it'll pick these changes up next time it loads (see notes below).
   "Export file" downloads a portable copy for backup or moving to another device/browser.
-  "Email to Disposals" downloads the file and opens an email addressed to Disposals@thecrazycat.com — attach the downloaded file before sending, so your store can be added to the app's store list.
+  "Email to Disposals" downloads the file and walks you through sending it to Disposals@thecrazycat.com, so your store can be added to the app's store list.
 </p>
+
+<div class="modal-overlay" id="emailInstructionsModal" hidden>
+  <div class="modal">
+    <h3>Send this store's file</h3>
+    <p style="margin:0;font-size:13px;color:var(--text-muted);">
+      <strong id="emailDownloadedFilename"></strong> just downloaded to this device.
+    </p>
+    <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;">
+      <li>Find that file (check your Downloads folder/notification).</li>
+      <li>Attach it to an email.</li>
+      <li>Send it to the address below.</li>
+    </ol>
+    <div style="display:flex;align-items:center;gap:8px;background:var(--panel-raised);border:1px solid var(--line);border-radius:6px;padding:8px 10px;">
+      <code id="emailAddressText" style="flex:1;font-size:13px;user-select:all;">Disposals@thecrazycat.com</code>
+      <button id="copyEmailBtn" class="secondary icon-btn" type="button">Copy</button>
+    </div>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button id="openEmailAppBtn" class="secondary" type="button">Open email app</button>
+      <button id="closeEmailModalBtn" type="button">Done</button>
+    </div>
+  </div>
+</div>
 
 <div class="restore-banner" id="restoreBanner" hidden>
   <span id="restoreBannerText"></span>
@@ -346,6 +368,11 @@ const els = {
   apDupeWarning: document.getElementById('apDupeWarning'),
   apSave: document.getElementById('apSave'),
   apCancel: document.getElementById('apCancel'),
+  emailInstructionsModal: document.getElementById('emailInstructionsModal'),
+  emailDownloadedFilename: document.getElementById('emailDownloadedFilename'),
+  copyEmailBtn: document.getElementById('copyEmailBtn'),
+  openEmailAppBtn: document.getElementById('openEmailAppBtn'),
+  closeEmailModalBtn: document.getElementById('closeEmailModalBtn'),
   restoreBanner: document.getElementById('restoreBanner'),
   restoreBannerText: document.getElementById('restoreBannerText'),
   restoreBtn: document.getElementById('restoreBtn'),
@@ -468,15 +495,40 @@ els.exportBtn.addEventListener('click', downloadDataFile);
 // deliberate anti-spam limitation) — so this downloads the file, then opens
 // a pre-addressed email and tells the user to attach what just downloaded.
 const DISPOSALS_EMAIL = 'Disposals@thecrazycat.com';
-els.emailExportBtn.addEventListener('click', () => {
-  const filename = exportFilename();
-  alert(`This downloads "${filename}" and opens an email to ${DISPOSALS_EMAIL}, so your store can be added to the app's store list.\n\nAttach the downloaded file to that email before sending it.`);
-  downloadDataFile();
+// mailto: is unreliable across platforms — on Windows without a default
+// mail app configured it can pop a bare "choose an app" prompt instead of
+// a compose window, so it's offered as one option here, not the only path.
+// The modal stays open (unlike a one-shot alert) so the instructions and
+// the address are still there after the user comes back from their email app.
+function mailtoUrl(filename) {
   const storeLabel = [DATA.store && DATA.store.name, DATA.store && DATA.store.number ? '#' + DATA.store.number : '']
     .filter(Boolean).join(' ');
   const subject = `Store data${storeLabel ? ' — ' + storeLabel : ''}`;
   const body = `Hi,\n\nOur store's data file (${filename}) just downloaded to this device — please find it attached.\n\nThis is so our store can be added to the app's store list.\n\nThanks!`;
-  window.location.href = `mailto:${DISPOSALS_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `mailto:${DISPOSALS_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+els.emailExportBtn.addEventListener('click', () => {
+  const filename = exportFilename();
+  downloadDataFile();
+  els.emailDownloadedFilename.textContent = `"${filename}"`;
+  els.openEmailAppBtn.onclick = () => { window.location.href = mailtoUrl(filename); };
+  els.emailInstructionsModal.hidden = false;
+});
+
+els.copyEmailBtn.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(DISPOSALS_EMAIL);
+    els.copyEmailBtn.textContent = 'Copied!';
+  } catch (e) {
+    els.copyEmailBtn.textContent = 'Select & copy above';
+  }
+  setTimeout(() => { els.copyEmailBtn.textContent = 'Copy'; }, 2000);
+});
+
+els.closeEmailModalBtn.addEventListener('click', () => { els.emailInstructionsModal.hidden = true; });
+els.emailInstructionsModal.addEventListener('click', (e) => {
+  if (e.target === els.emailInstructionsModal) els.emailInstructionsModal.hidden = true;
 });
 
 /* ---------------- Render root ---------------- */

@@ -682,7 +682,6 @@ function activeStoreDataFile() {
 
 const DATA_KEY = storeKey('cratelog_data');
 const FAV_KEY = storeKey('cratelog_favourites');
-const STORE_KEY = storeKey('cratelog_store');
 const HIDDEN_KEY = storeKey('cratelog_hidden');
 const HINT_KEY = 'cratelog_hint_seen'; // device-wide tip, not store-specific
 const SCANLIST_KEY = storeKey('cratelog_scanlist');
@@ -755,29 +754,6 @@ function saveData() { saveJSON(DATA_KEY, DATA); dataSource = 'local'; }
 let favourites = loadJSON(FAV_KEY, {});
 function saveFavourites() { saveJSON(FAV_KEY, favourites); }
 
-// Device-local "not stocked at this store" list — never part of the
-// shared/exported data.json product records, kept as its own field
-// so the diff tool doesn't see hidden items as changed products.
-let storeInfo = loadJSON(STORE_KEY, { name: '', number: '' });
-function saveStoreInfo() { saveJSON(STORE_KEY, storeInfo); }
-
-// Sanitizes an <input> live as the user types, preserving cursor position
-// when the cleaned value differs from what's on screen.
-function sanitizeInput(el, cleanFn) {
-  const raw = el.value;
-  const cleaned = cleanFn(raw);
-  if (cleaned === raw) return cleaned;
-  const pos = Math.max(0, el.selectionStart - (raw.length - cleaned.length));
-  el.value = cleaned;
-  el.setSelectionRange(pos, pos);
-  return cleaned;
-}
-function cleanStoreNumber(v) { return v.replace(/[^0-9]/g, '').slice(0, 4); }
-function cleanStoreName(v) {
-  return v.replace(/[^a-zA-Z ]/g, '').replace(/ {2,}/g, ' ').slice(0, 25)
-    .toLowerCase().replace(/(^|\s)[a-z]/g, c => c.toUpperCase());
-}
-
 let hiddenSet = new Set(loadJSON(HIDDEN_KEY, []));
 function saveHidden() { saveJSON(HIDDEN_KEY, [...hiddenSet]); }
 function toggleHidden(id) {
@@ -789,9 +765,12 @@ function toggleHidden(id) {
 
 // Scan list — device-local "bag now, scan later" list, entirely separate
 // from the shared/exported data.json (same reasoning as favourites/hidden).
-// Entries are {sku, qty, unit, addedAt}, joined against DATA.products by
-// sku at render time so a deleted product just quietly drops out.
-let scanList = loadJSON(SCANLIST_KEY, []);
+// Entries are {sku, reason, qty, unit, addedAt}, keyed by (sku, reason) so
+// the same product can appear once per reason — joined against DATA.products
+// by sku at render time so a deleted product just quietly drops out.
+const SCAN_REASONS = ['Out of code', 'Damaged', 'Poor quality'];
+// old entries (pre-reason-codes) get a default so they still render/join fine
+let scanList = loadJSON(SCANLIST_KEY, []).map(e => ({ reason: SCAN_REASONS[0], ...e }));
 function saveScanList() { saveJSON(SCANLIST_KEY, scanList); }
 
 let scanListSort = localStorage.getItem(SCANLIST_SORT_KEY) || 'added';
@@ -800,35 +779,36 @@ function saveScanListSort() { localStorage.setItem(SCANLIST_SORT_KEY, scanListSo
 let scanListEnabled = loadJSON(SCANLIST_ENABLED_KEY, true);
 function saveScanListEnabled() { saveJSON(SCANLIST_ENABLED_KEY, scanListEnabled); }
 
-function findScanEntry(sku) { return scanList.find(e => e.sku === sku); }
+function findScanEntry(sku, reason) { return scanList.find(e => e.sku === sku && e.reason === reason); }
 
-function upsertScanEntry(sku, qty, unit) {
-  const existing = findScanEntry(sku);
+function upsertScanEntry(sku, reason, qty, unit) {
+  const existing = findScanEntry(sku, reason);
   if (existing) {
     existing.qty = qty;
     existing.unit = unit;
   } else {
-    scanList.push({ sku, qty, unit, addedAt: Date.now() });
+    scanList.push({ sku, reason, qty, unit, addedAt: Date.now() });
   }
   saveScanList();
 }
 
-function removeScanEntry(sku) {
-  scanList = scanList.filter(e => e.sku !== sku);
+function removeScanEntry(sku, reason) {
+  scanList = scanList.filter(e => !(e.sku === sku && e.reason === reason));
   saveScanList();
 }
 
 const AISLE_SORT_ORDER = { Salad: 0, Veg: 1, Fruit: 2 };
 
 // scan list entries joined to their product record, in the current sort
-// order; entries whose product no longer exists are dropped
+// order; entries whose product no longer exists are dropped. A sku with
+// entries under multiple reasons produces one row per reason.
 function getScanListProducts() {
   const bySku = new Map(DATA.products.map(p => [p.sku, p]));
   const list = scanList
     .map(e => {
       const p = bySku.get(e.sku);
       if (!p) return null;
-      return { ...p, aisle: resolveAisle(p), qty: e.qty, unit: e.unit };
+      return { ...p, aisle: resolveAisle(p), reason: e.reason, qty: e.qty, unit: e.unit };
     })
     .filter(Boolean);
   if (scanListSort === 'aisle') {
@@ -891,9 +871,6 @@ const els = {
   adminBar: document.getElementById('adminBar'),
   dataFileInput: document.getElementById('dataFileInput'),
   syncBtn: document.getElementById('syncBtn'),
-  exportBtn: document.getElementById('exportBtn'),
-  storeName: document.getElementById('storeName'),
-  storeNumber: document.getElementById('storeNumber'),
   storeSelect: document.getElementById('storeSelect'),
   aisleEditorLink: document.getElementById('aisleEditorLink'),
   storeLabel: document.getElementById('storeLabel'),
@@ -940,6 +917,7 @@ const els = {
   scanAddName: document.getElementById('scanAddName'),
   scanAddSku: document.getElementById('scanAddSku'),
   scanAddPrefill: document.getElementById('scanAddPrefill'),
+  scanAddReason: document.getElementById('scanAddReason'),
   scanAddQty: document.getElementById('scanAddQty'),
   scanAddUnit: document.getElementById('scanAddUnit'),
   scanAddSave: document.getElementById('scanAddSave'),
@@ -1084,9 +1062,10 @@ function render() {
 }
 
 function renderStoreLabel() {
+  const store = DATA.store || {};
   const parts = [];
-  if (storeInfo.name) parts.push(storeInfo.name);
-  if (storeInfo.number) parts.push(`#${storeInfo.number}`);
+  if (store.name) parts.push(store.name);
+  if (store.number) parts.push(`#${store.number}`);
   els.storeLabel.textContent = parts.join(' ');
   els.storeLabel.hidden = parts.length === 0;
 }
@@ -1155,15 +1134,9 @@ function renderList() {
   }
 }
 
-/* ---------------- Scan lock (long-press a QR to dim/blur the rest) ---------------- */
-
-const SCAN_LOCK_MS = 500;
-const SCAN_LOCK_MOVE_CANCEL_PX = 10;
+/* ---------------- Scan lock (tap a card's QR to dim/blur the rest) ---------------- */
 
 let scanLockCard = null;
-let scanLockTimer = null;
-let scanLockPressStart = null;
-let scanLockSuppressNextClick = false;
 
 function clearScanLock() {
   if (scanLockCard) scanLockCard.classList.remove('scan-lock-target');
@@ -1171,58 +1144,19 @@ function clearScanLock() {
   scanLockCard = null;
 }
 
-function armScanLock(card, point) {
-  cancelScanLockPress();
-  scanLockPressStart = { x: point.clientX, y: point.clientY };
-  scanLockTimer = setTimeout(() => {
-    clearScanLock(); // release whichever card was previously locked, if any
-    scanLockCard = card;
-    card.classList.add('scan-lock-target');
-    els.productList.classList.add('qr-locked');
-    scanLockSuppressNextClick = true;
-    scanLockTimer = null;
-  }, SCAN_LOCK_MS);
-}
-function cancelScanLockPress() {
-  clearTimeout(scanLockTimer);
-  scanLockTimer = null;
-  scanLockPressStart = null;
+function toggleScanLock(card) {
+  if (scanLockCard === card) { clearScanLock(); return; }
+  clearScanLock(); // release whichever card was previously locked, if any
+  scanLockCard = card;
+  card.classList.add('scan-lock-target');
+  els.productList.classList.add('qr-locked');
 }
 
-function attachScanLock(card) {
-  card.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    armScanLock(card, e);
-  });
-  card.addEventListener('pointermove', (e) => {
-    if (!scanLockTimer || !scanLockPressStart) return;
-    const dx = e.clientX - scanLockPressStart.x;
-    const dy = e.clientY - scanLockPressStart.y;
-    if (Math.hypot(dx, dy) > SCAN_LOCK_MOVE_CANCEL_PX) cancelScanLockPress();
-  });
-  card.addEventListener('pointerup', cancelScanLockPress);
-  card.addEventListener('pointerleave', cancelScanLockPress);
-  card.addEventListener('pointercancel', cancelScanLockPress);
-}
-
-// runs before any card's own click handler (capture phase): while scan
-// lock is active, every tap just releases it rather than doing its
-// normal thing (open the modal, copy the SKU, etc.)
-document.addEventListener('click', (e) => {
-  if (scanLockSuppressNextClick) {
-    // this is the release-click of the long-press gesture that just
-    // armed the lock — swallow it without touching the lock we just set
-    scanLockSuppressNextClick = false;
-    e.preventDefault();
-    e.stopPropagation();
-    return;
-  }
-  if (scanLockCard) {
-    e.preventDefault();
-    e.stopPropagation();
-    clearScanLock();
-  }
-}, true);
+// the QR's own click handler stops propagation, so any click that reaches
+// here was never on a QR — always a "tap elsewhere to release" click
+document.addEventListener('click', () => {
+  if (scanLockCard) clearScanLock();
+});
 
 function buildCard(p) {
   const card = document.createElement('div');
@@ -1273,7 +1207,10 @@ function buildCard(p) {
     actions.appendChild(qrWrap);
     // eslint-disable-next-line no-undef
     new QRCode(qrWrap, { text: p.sku, width: 80, height: 80, colorDark: '#1B211D', colorLight: '#ffffff' });
-    attachScanLock(card);
+    qrWrap.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleScanLock(card);
+    });
   } else {
     const needsSku = document.createElement('div');
     needsSku.className = 'card-needs-sku';
@@ -1282,7 +1219,7 @@ function buildCard(p) {
   }
 
   if (scanListEnabled && p.sku) {
-    const inList = !!findScanEntry(p.sku);
+    const inList = scanList.some(e => e.sku === p.sku);
     const addBtn = document.createElement('button');
     addBtn.className = 'add-btn' + (inList ? ' in-list' : '');
     addBtn.textContent = inList ? '✓' : '+';
@@ -1383,7 +1320,6 @@ function openScanAddModal(sku) {
   const p = DATA.products.find(x => x.sku === sku);
   if (!p) return;
   pendingScanSku = sku;
-  const existing = findScanEntry(sku);
 
   els.scanAddCategory.textContent = p.category || 'Uncategorised';
   els.scanAddName.textContent = p.name;
@@ -1392,14 +1328,8 @@ function openScanAddModal(sku) {
   els.scanAddImg.style.display = '';
   els.scanAddImg.onerror = () => { els.scanAddImg.style.display = 'none'; };
 
-  const qty = existing ? existing.qty : 1;
-  const unit = existing ? existing.unit : 'units';
-  els.scanAddQty.value = qty;
-  els.scanAddUnit.value = unit;
-  els.scanAddQty.step = unit === 'kg' ? '0.1' : '1';
-  els.scanAddQty.inputMode = unit === 'kg' ? 'decimal' : 'numeric';
-  els.scanAddPrefill.hidden = !existing;
-  els.scanAddRemove.hidden = !existing;
+  els.scanAddReason.value = SCAN_REASONS[0];
+  refreshScanAddPrefill();
 
   els.scanAddModal.hidden = false;
   requestAnimationFrame(() => { els.scanAddQty.focus(); els.scanAddQty.select(); });
@@ -1409,6 +1339,23 @@ function closeScanAddModal() {
   pendingScanSku = null;
 }
 
+// re-applied whenever the reason dropdown changes: prefills qty/unit from
+// that (sku, reason) pair's existing entry, if there is one, so re-adding
+// the same product+reason edits it rather than creating a duplicate
+function refreshScanAddPrefill() {
+  if (!pendingScanSku) return;
+  const existing = findScanEntry(pendingScanSku, els.scanAddReason.value);
+  const qty = existing ? existing.qty : 1;
+  const unit = existing ? existing.unit : 'units';
+  els.scanAddQty.value = qty;
+  els.scanAddUnit.value = unit;
+  els.scanAddQty.step = unit === 'kg' ? '0.1' : '1';
+  els.scanAddQty.inputMode = unit === 'kg' ? 'decimal' : 'numeric';
+  els.scanAddPrefill.hidden = !existing;
+  els.scanAddRemove.hidden = !existing;
+}
+
+els.scanAddReason.addEventListener('change', refreshScanAddPrefill);
 els.scanAddUnit.addEventListener('change', () => {
   const isKg = els.scanAddUnit.value === 'kg';
   els.scanAddQty.step = isKg ? '0.1' : '1';
@@ -1423,14 +1370,14 @@ els.scanAddModal.addEventListener('click', (e) => { if (e.target === els.scanAdd
 els.scanAddSave.addEventListener('click', () => {
   if (!pendingScanSku) return;
   const qty = parseFloat(els.scanAddQty.value) || 0;
-  upsertScanEntry(pendingScanSku, qty, els.scanAddUnit.value);
+  upsertScanEntry(pendingScanSku, els.scanAddReason.value, qty, els.scanAddUnit.value);
   closeScanAddModal();
   renderScanListBadge();
   renderList();
 });
 els.scanAddRemove.addEventListener('click', () => {
   if (!pendingScanSku) return;
-  removeScanEntry(pendingScanSku);
+  removeScanEntry(pendingScanSku, els.scanAddReason.value);
   closeScanAddModal();
   renderScanListBadge();
   renderList();
@@ -1489,7 +1436,8 @@ function saveAdminEdit() {
 
 /* ---------------- Scan list: list view ---------------- */
 
-let activeScanSku = null;
+let activeScanKey = null;
+function scanRowKey(sku, reason) { return `${sku}::${reason}`; }
 
 function renderScanListBadge() {
   const count = scanList.length;
@@ -1522,8 +1470,8 @@ function renderScanListView() {
   els.scanListEmpty.hidden = list.length !== 0;
   els.scanClearBar.hidden = list.length === 0;
 
-  if (!list.find(p => p.sku === activeScanSku)) {
-    activeScanSku = list[0] ? list[0].sku : null;
+  if (!list.find(p => scanRowKey(p.sku, p.reason) === activeScanKey)) {
+    activeScanKey = list[0] ? scanRowKey(list[0].sku, list[0].reason) : null;
   }
 
   scanRenderGen++;
@@ -1531,7 +1479,7 @@ function renderScanListView() {
   els.scanItems.innerHTML = '';
   list.forEach(p => els.scanItems.appendChild(buildScanCard(p, gen)));
 
-  const activeIdx = list.findIndex(p => p.sku === activeScanSku);
+  const activeIdx = list.findIndex(p => scanRowKey(p.sku, p.reason) === activeScanKey);
   els.scanActiveIdx.textContent = activeIdx === -1 ? 0 : activeIdx + 1;
 }
 
@@ -1545,7 +1493,7 @@ let scanRenderGen = 0;
 
 function buildScanCard(p, gen) {
   const card = document.createElement('div');
-  card.className = 'product-card' + (p.sku === activeScanSku ? ' is-active' : '');
+  card.className = 'product-card' + (scanRowKey(p.sku, p.reason) === activeScanKey ? ' is-active' : '');
   card.dataset.color = p.aisle;
 
   const img = document.createElement('img');
@@ -1562,6 +1510,9 @@ function buildScanCard(p, gen) {
     <div class="card-name">${escapeHtml(p.name)}</div>
     <span class="card-sku">SKU ${escapeHtml(p.sku)}</span>
     <div class="scan-item-qty">
+      <select class="scan-reason-select">
+        ${SCAN_REASONS.map(r => `<option value="${escapeHtml(r)}" ${r === p.reason ? 'selected' : ''}>${escapeHtml(r)}</option>`).join('')}
+      </select>
       <input type="number" class="scan-qty-input" value="${p.qty}" min="0" step="${p.unit === 'kg' ? '0.1' : '1'}" inputmode="${p.unit === 'kg' ? 'decimal' : 'numeric'}">
       <select class="scan-unit-select">
         <option value="units" ${p.unit === 'units' ? 'selected' : ''}>units</option>
@@ -1586,23 +1537,52 @@ function buildScanCard(p, gen) {
   actions.appendChild(delBtn);
   card.appendChild(actions);
 
+  const reasonSelect = body.querySelector('.scan-reason-select');
   const qtyInput = body.querySelector('.scan-qty-input');
   const unitSelect = body.querySelector('.scan-unit-select');
   qtyInput.addEventListener('click', (e) => e.stopPropagation());
   qtyInput.addEventListener('change', () => {
     if (gen !== scanRenderGen) return;
-    const entry = findScanEntry(p.sku);
+    const entry = findScanEntry(p.sku, p.reason);
     if (!entry) return;
     entry.qty = parseFloat(qtyInput.value) || 0;
     saveScanList();
   });
   unitSelect.addEventListener('click', (e) => e.stopPropagation());
   unitSelect.addEventListener('change', () => {
-    const entry = findScanEntry(p.sku);
+    const entry = findScanEntry(p.sku, p.reason);
     if (!entry) return;
     const isKg = unitSelect.value === 'kg';
     entry.unit = unitSelect.value;
     if (!isKg) entry.qty = Math.max(Math.round(parseFloat(entry.qty) || 0), 0);
+    saveScanList();
+    renderScanListView();
+  });
+
+  reasonSelect.addEventListener('click', (e) => e.stopPropagation());
+  reasonSelect.addEventListener('change', () => {
+    const newReason = reasonSelect.value;
+    const thisEntry = findScanEntry(p.sku, p.reason);
+    if (!thisEntry) return;
+    const collision = findScanEntry(p.sku, newReason);
+    if (collision) {
+      const total = collision.qty + thisEntry.qty;
+      const unitLabel = collision.unit === 'kg' ? 'kg' : collision.unit;
+      const ok = confirm(
+        `${p.name} already has a "${newReason}" entry (${collision.qty} ${unitLabel}).\n\n` +
+        `Add this row's ${thisEntry.qty} ${unitLabel} to it, for a total of ${total} ${unitLabel} ${newReason}?`
+      );
+      if (!ok) {
+        reasonSelect.value = p.reason; // revert the dropdown, nothing changes
+        return;
+      }
+      collision.qty = total;
+      scanList = scanList.filter(e => e !== thisEntry);
+      activeScanKey = scanRowKey(p.sku, newReason);
+    } else {
+      thisEntry.reason = newReason;
+      activeScanKey = scanRowKey(p.sku, newReason);
+    }
     saveScanList();
     renderScanListView();
   });
@@ -1614,7 +1594,7 @@ function buildScanCard(p, gen) {
 
   card.addEventListener('click', (e) => {
     if (e.target.closest('.scan-item-qty, .scan-item-del, .scan-confirm-inline')) return;
-    activeScanSku = p.sku;
+    activeScanKey = scanRowKey(p.sku, p.reason);
     renderScanListView();
   });
 
@@ -1626,13 +1606,13 @@ function confirmScanDelete(card, p) {
   const row = document.createElement('div');
   row.className = 'confirm-inline scan-confirm-inline';
   const label = p.unit === 'kg' ? `${p.qty}kg` : `${p.qty} ${p.unit}`;
-  row.innerHTML = `<span>Remove ${escapeHtml(label)} — ${escapeHtml(p.name)}?</span>
+  row.innerHTML = `<span>Remove ${escapeHtml(label)} ${escapeHtml(p.reason)} — ${escapeHtml(p.name)}?</span>
     <span style="display:flex;gap:6px;"><button class="btn-danger" data-do>Remove</button><button class="btn-ghost" data-undo>Cancel</button></span>`;
   card.appendChild(row);
   row.querySelector('[data-undo]').addEventListener('click', (e) => { e.stopPropagation(); row.remove(); });
   row.querySelector('[data-do]').addEventListener('click', (e) => {
     e.stopPropagation();
-    const removedIdx = scanList.findIndex(entry => entry.sku === p.sku);
+    const removedIdx = scanList.findIndex(entry => entry.sku === p.sku && entry.reason === p.reason);
     const [removedEntry] = scanList.splice(removedIdx, 1);
     saveScanList();
     renderScanListBadge();
@@ -1640,7 +1620,7 @@ function confirmScanDelete(card, p) {
     showActionToast(`Removed ${p.name}`, 'Undo', () => {
       scanList.splice(removedIdx, 0, removedEntry);
       saveScanList();
-      activeScanSku = removedEntry.sku;
+      activeScanKey = scanRowKey(removedEntry.sku, removedEntry.reason);
       renderScanListBadge();
       renderScanListView();
     });
@@ -1688,7 +1668,7 @@ function buildScanShareView(list) {
   wrap.style.cssText = 'position:fixed; left:-9999px; top:0; width:420px; background:#1B211D; color:#F2EEE4; font-family:Inter,sans-serif; padding:20px;';
 
   const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  const storeLine = [storeInfo.name, storeInfo.number ? `#${storeInfo.number}` : ''].filter(Boolean).join(' ');
+  const storeLine = [DATA.store && DATA.store.name, DATA.store && DATA.store.number ? `#${DATA.store.number}` : ''].filter(Boolean).join(' ');
   const subLine = [storeLine, dateStr, `${list.length} item${list.length === 1 ? '' : 's'}`].filter(Boolean).join(' — ');
 
   const header = document.createElement('div');
@@ -1706,7 +1686,7 @@ function buildScanShareView(list) {
     text.style.cssText = 'flex:1; min-width:0;';
     text.innerHTML = `
       <div style="font-weight:600; font-size:14px;">${escapeHtml(p.name)}</div>
-      <div style="color:#9AA69C; font-size:11px; font-family:'IBM Plex Mono',monospace; margin-top:2px;">SKU ${escapeHtml(p.sku)} · ${escapeHtml(qtyLabel)}</div>
+      <div style="color:#9AA69C; font-size:11px; font-family:'IBM Plex Mono',monospace; margin-top:2px;">SKU ${escapeHtml(p.sku)} · ${escapeHtml(qtyLabel)} · ${escapeHtml(p.reason)}</div>
     `;
     row.appendChild(text);
     const qr = document.createElement('div');
@@ -1784,9 +1764,9 @@ async function getQrcodeLibSource() {
 
 function buildInteractiveScanExportHtml(list, qrcodeLibSource) {
   const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  const storeLine = [storeInfo.name, storeInfo.number ? `#${storeInfo.number}` : ''].filter(Boolean).join(' ');
+  const storeLine = [DATA.store && DATA.store.name, DATA.store && DATA.store.number ? `#${DATA.store.number}` : ''].filter(Boolean).join(' ');
   const subLine = [storeLine, dateStr, `${list.length} item${list.length === 1 ? '' : 's'}`].filter(Boolean).join(' — ');
-  const items = list.map(p => ({ name: p.name, sku: p.sku, qty: p.qty, unit: p.unit }));
+  const items = list.map(p => ({ name: p.name, sku: p.sku, qty: p.qty, unit: p.unit, reason: p.reason }));
   // guards against a stray "</script" in item data breaking out of the embedded JSON
   const itemsJson = JSON.stringify(items).replace(/<\/script/gi, '<\\/script');
 
@@ -1888,6 +1868,7 @@ items.forEach((p, i) => {
       <div class="meta">
         <span class="sku-text"></span>
         <span class="qty-badge"></span>
+        <span class="qty-badge reason-badge"></span>
         <span class="lock-tag">🔒 locked</span>
       </div>
     </div>
@@ -1896,6 +1877,7 @@ items.forEach((p, i) => {
   row.querySelector('.name').textContent = p.name;
   row.querySelector('.sku-text').textContent = 'SKU ' + p.sku;
   row.querySelector('.qty-badge').textContent = qtyLabel;
+  row.querySelector('.reason-badge').textContent = p.reason;
   listEl.appendChild(row);
 
   // eslint-disable-next-line no-undef
@@ -2052,43 +2034,9 @@ els.adminToggle.addEventListener('click', () => {
   els.adminToggle.classList.toggle('active', state.adminMode);
   els.adminBar.hidden = !state.adminMode;
   if (state.adminMode) {
-    els.storeName.value = storeInfo.name || '';
-    els.storeNumber.value = storeInfo.number || '';
     updateScanListFeatureToggle();
   }
   renderList();
-});
-
-els.storeName.addEventListener('input', () => {
-  storeInfo.name = sanitizeInput(els.storeName, cleanStoreName);
-  saveStoreInfo();
-  renderStoreLabel();
-});
-els.storeNumber.addEventListener('input', () => {
-  storeInfo.number = sanitizeInput(els.storeNumber, cleanStoreNumber);
-  saveStoreInfo();
-  renderStoreLabel();
-});
-
-els.exportBtn.addEventListener('click', () => {
-  const exportObj = {
-    ...JSON.parse(JSON.stringify(DATA)),
-    store: { name: storeInfo.name || '', number: storeInfo.number || '' },
-    hiddenSkus: [...hiddenSet],
-  };
-  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const safeName = (storeInfo.name || 'store').trim().replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-  const safeNumber = (storeInfo.number || '').trim().replace(/[^a-z0-9]+/gi, '');
-  const a = document.createElement('a');
-  a.href = url;
-  // named to drop straight into stores/ as-is — see tools/build-stores.js
-  a.download = safeNumber ? `data-${safeNumber}.json` : `data-${safeName}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  showToast('Store file exported');
 });
 
 els.dataFileInput.addEventListener('change', (e) => {
@@ -2141,13 +2089,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initData();
   initStoreSelect();
 
-  // first visit to a store: adopt its data.json store name/number as the
-  // label, without clobbering a name an admin already typed in by hand
-  if (!storeInfo.name && !storeInfo.number && DATA.store) {
-    storeInfo = { name: DATA.store.name || '', number: DATA.store.number || '' };
-    saveStoreInfo();
-  }
-
   state.aisle = DATA.aisles[0] || 'All';
   renderAisleTabs();
   renderScanListBadge();
@@ -2165,5 +2106,5 @@ window.addEventListener('DOMContentLoaded', async () => {
 function maybeShowLongPressHint() {
   if (localStorage.getItem(HINT_KEY)) return;
   localStorage.setItem(HINT_KEY, '1');
-  showActionToast('Tip: hold an item to lock its QR for scanning.', 'Got it', () => {});
+  showActionToast('Tip: tap an item\'s QR to lock it for scanning.', 'Got it', () => {});
 }

@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -96,6 +96,12 @@
     <h2 id="scanAddName">Product name</h2>
     <p class="modal-sub" id="scanAddSku">SKU</p>
     <p class="prefill-note" id="scanAddPrefill" hidden>Already on your list — editing saved quantity</p>
+    <label class="field-label" for="scanAddReason">Reason</label>
+    <select id="scanAddReason" class="reason-select">
+      <option value="Out of code">Out of code</option>
+      <option value="Damaged">Damaged</option>
+      <option value="Poor quality">Poor quality</option>
+    </select>
     <div class="qty-row">
       <input id="scanAddQty" type="number" min="0" step="1" inputmode="numeric" value="1">
       <select id="scanAddUnit">
@@ -157,11 +163,7 @@
 </div>
 
 <div id="adminBar" class="admin-bar" hidden>
-  <div>Admin mode — tap any card to edit category / SKU, or hide it if this store doesn't stock it. Adding, deleting, or restructuring aisles &amp; categories happens in the editor.</div>
-  <div class="admin-bar-row admin-store-row">
-    <input id="storeName" type="text" class="admin-store-input" maxlength="25" placeholder="Store name">
-    <input id="storeNumber" type="text" class="admin-store-input admin-store-input-narrow" inputmode="numeric" maxlength="4" placeholder="Store #">
-  </div>
+  <div>Admin mode — tap any card to edit category / SKU, or hide it if this store doesn't stock it. Adding, deleting, or restructuring aisles &amp; categories, and setting a store's name/number, happens in the editor.</div>
   <div class="admin-toggle-row">
     <span>Scan list feature</span>
     <div id="scanListFeatureToggle" class="toggle-switch"></div>
@@ -173,7 +175,6 @@
       <input type="file" id="dataFileInput" accept="application/json" hidden>
     </label>
     <button id="syncBtn" class="admin-file-btn" hidden>Sync from data.json</button>
-    <button id="exportBtn" class="admin-file-btn">Export store file…</button>
   </div>
 </div>
 
@@ -181,6 +182,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
