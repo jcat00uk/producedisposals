@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -28,6 +28,7 @@
       </button>
       <nav class="aisle-tabs" id="aisleTabs"></nav>
     </div>
+    <select id="storeSelect" class="store-select" hidden></select>
     <div id="storeLabel" class="store-label" hidden></div>
     <div class="filter-panel" id="filterPanel" hidden>
       <div class="filter-group">
@@ -158,15 +159,15 @@
 <div id="adminBar" class="admin-bar" hidden>
   <div>Admin mode — tap any card to edit category / SKU, or hide it if this store doesn't stock it. Adding, deleting, or restructuring aisles &amp; categories happens in the editor.</div>
   <div class="admin-bar-row admin-store-row">
-    <input id="storeName" type="text" class="admin-store-input" placeholder="Store name">
-    <input id="storeNumber" type="text" class="admin-store-input admin-store-input-narrow" inputmode="numeric" placeholder="Store #">
+    <input id="storeName" type="text" class="admin-store-input" maxlength="25" placeholder="Store name">
+    <input id="storeNumber" type="text" class="admin-store-input admin-store-input-narrow" inputmode="numeric" maxlength="4" placeholder="Store #">
   </div>
   <div class="admin-toggle-row">
     <span>Scan list feature</span>
     <div id="scanListFeatureToggle" class="toggle-switch"></div>
   </div>
   <div class="admin-bar-row">
-    <a href="aisle-editor.html" target="_blank" rel="noopener" class="admin-file-btn">Open aisle editor…</a>
+    <a id="aisleEditorLink" href="aisle-editor.html" target="_blank" rel="noopener" class="admin-file-btn">Open aisle editor…</a>
     <label class="admin-file-btn">
       Load data file…
       <input type="file" id="dataFileInput" accept="application/json" hidden>
@@ -180,6 +181,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

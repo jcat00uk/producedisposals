@@ -1,5 +1,9 @@
 const BASE_DATA = {
   "version": 1,
+  "store": {
+    "name": "Default",
+    "number": "000"
+  },
   "aisles": [
     "Salad",
     "Veg",
@@ -660,14 +664,30 @@ const BASE_DATA = {
    never part of the shared/exported dataset.
    ============================================================ */
 
-const DATA_KEY = 'cratelog_data';
-const FAV_KEY = 'cratelog_favourites';
-const STORE_KEY = 'cratelog_store';
-const HIDDEN_KEY = 'cratelog_hidden';
-const HINT_KEY = 'cratelog_hint_seen';
-const SCANLIST_KEY = 'cratelog_scanlist';
-const SCANLIST_SORT_KEY = 'cratelog_scanlist_sort';
-const SCANLIST_ENABLED_KEY = 'cratelog_scanlist_enabled';
+// Multi-store: ?store=NNNN in the URL (or the last store picked from the
+// dropdown, remembered in localStorage) selects which data file loads and
+// which localStorage namespace this tab reads/writes. The default store
+// (000) keeps the original, unsuffixed keys so existing installs need no
+// migration — only non-default stores get a "_NNNN" suffix, so switching
+// stores on one device never mixes up their local edits.
+const STORE_PARAM = 'store';
+const ACTIVE_STORE_KEY = 'cratelog_active_store';
+const ACTIVE_STORE = new URLSearchParams(location.search).get(STORE_PARAM)
+  || localStorage.getItem(ACTIVE_STORE_KEY)
+  || '000';
+function storeKey(base) { return ACTIVE_STORE === '000' ? base : `${base}_${ACTIVE_STORE}`; }
+function activeStoreDataFile() {
+  return ACTIVE_STORE === '000' ? 'data.json' : `stores/data-${ACTIVE_STORE}.json`;
+}
+
+const DATA_KEY = storeKey('cratelog_data');
+const FAV_KEY = storeKey('cratelog_favourites');
+const STORE_KEY = storeKey('cratelog_store');
+const HIDDEN_KEY = storeKey('cratelog_hidden');
+const HINT_KEY = 'cratelog_hint_seen'; // device-wide tip, not store-specific
+const SCANLIST_KEY = storeKey('cratelog_scanlist');
+const SCANLIST_SORT_KEY = storeKey('cratelog_scanlist_sort');
+const SCANLIST_ENABLED_KEY = storeKey('cratelog_scanlist_enabled');
 const ICONS = { Salad: '🥗', Veg: '🥕', Fruit: '🍎' };
 const DEFAULT_ICON = '🧺';
 
@@ -690,10 +710,11 @@ function isValidDataShape(d) {
 let dataSource = 'default';
 let publishedData = null; // set when data.json was fetched successfully, even if not the active DATA
 let DATA = null;
+let storeNotFound = false; // ACTIVE_STORE isn't 000 and its data file 404'd, with no local cache either
 
 async function initData() {
   try {
-    const res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    const res = await fetch(activeStoreDataFile() + '?t=' + Date.now(), { cache: 'no-store' });
     if (res.ok) {
       const fetched = await res.json();
       if (isValidDataShape(fetched)) {
@@ -723,6 +744,7 @@ async function initData() {
     return;
   }
 
+  if (ACTIVE_STORE !== '000') storeNotFound = true;
   DATA = JSON.parse(JSON.stringify(BASE_DATA));
   dataSource = 'default';
   saveJSON(DATA_KEY, DATA);
@@ -738,6 +760,23 @@ function saveFavourites() { saveJSON(FAV_KEY, favourites); }
 // so the diff tool doesn't see hidden items as changed products.
 let storeInfo = loadJSON(STORE_KEY, { name: '', number: '' });
 function saveStoreInfo() { saveJSON(STORE_KEY, storeInfo); }
+
+// Sanitizes an <input> live as the user types, preserving cursor position
+// when the cleaned value differs from what's on screen.
+function sanitizeInput(el, cleanFn) {
+  const raw = el.value;
+  const cleaned = cleanFn(raw);
+  if (cleaned === raw) return cleaned;
+  const pos = Math.max(0, el.selectionStart - (raw.length - cleaned.length));
+  el.value = cleaned;
+  el.setSelectionRange(pos, pos);
+  return cleaned;
+}
+function cleanStoreNumber(v) { return v.replace(/[^0-9]/g, '').slice(0, 4); }
+function cleanStoreName(v) {
+  return v.replace(/[^a-zA-Z ]/g, '').replace(/ {2,}/g, ' ').slice(0, 25)
+    .toLowerCase().replace(/(^|\s)[a-z]/g, c => c.toUpperCase());
+}
 
 let hiddenSet = new Set(loadJSON(HIDDEN_KEY, []));
 function saveHidden() { saveJSON(HIDDEN_KEY, [...hiddenSet]); }
@@ -855,6 +894,8 @@ const els = {
   exportBtn: document.getElementById('exportBtn'),
   storeName: document.getElementById('storeName'),
   storeNumber: document.getElementById('storeNumber'),
+  storeSelect: document.getElementById('storeSelect'),
+  aisleEditorLink: document.getElementById('aisleEditorLink'),
   storeLabel: document.getElementById('storeLabel'),
   toast: document.getElementById('toast'),
 
@@ -1049,6 +1090,36 @@ function renderStoreLabel() {
   els.storeLabel.textContent = parts.join(' ');
   els.storeLabel.hidden = parts.length === 0;
 }
+
+// Populates the store switcher from stores/stores.json. That manifest only
+// lists what's available — it plays no part in loading the active store's
+// data (activeStoreDataFile() derives that straight from ACTIVE_STORE), so
+// a missing or unreachable manifest just means the dropdown stays hidden.
+async function initStoreSelect() {
+  let manifest;
+  try {
+    const res = await fetch('stores/stores.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    manifest = await res.json();
+    if (!Array.isArray(manifest) || manifest.length < 2) return;
+  } catch (e) {
+    return;
+  }
+
+  els.storeSelect.innerHTML = manifest
+    .map(s => `<option value="${escapeHtml(s.number)}">${escapeHtml(s.number)} — ${escapeHtml(s.name)}</option>`)
+    .join('');
+  els.storeSelect.value = ACTIVE_STORE;
+  els.storeSelect.hidden = false;
+}
+
+els.storeSelect.addEventListener('change', () => {
+  const num = els.storeSelect.value;
+  localStorage.setItem(ACTIVE_STORE_KEY, num);
+  const url = new URL(location.href);
+  if (num === '000') url.searchParams.delete(STORE_PARAM); else url.searchParams.set(STORE_PARAM, num);
+  location.href = url.toString();
+});
 
 function renderFavToggle() {
   const count = DATA.products.filter(p => favourites[p.id]).length;
@@ -1782,6 +1853,10 @@ body{
   font-family:var(--font-mono);
 }
 .foot{ margin-top:18px; text-align:center; color:var(--text-muted); font-size:11px; }
+.noscript-note{
+  margin-top:14px; padding:12px; background:#4a2a1f; border:1px solid #7a4530;
+  border-radius:var(--radius); font-size:13px; line-height:1.5;
+}
 </style>
 </head>
 <body>
@@ -1791,6 +1866,9 @@ body{
     <div class="sub">${escapeHtml(subLine)}</div>
     <div class="note">Tap an item to bring up its QR code for scanning. Quantities are locked — this is a snapshot, not a live list.</div>
   </div>
+  <noscript>
+    <div class="noscript-note">This looks like a quick preview with JavaScript switched off, so the list below can't draw itself. On iPhone: tap Share → <b>Open in Safari</b> (or Open in Browser) instead of viewing it inline in Messages/Mail.</div>
+  </noscript>
   <div class="list" id="list"></div>
   <div class="foot">Read-only export · generated on device, not synced</div>
 </div>
@@ -1982,12 +2060,12 @@ els.adminToggle.addEventListener('click', () => {
 });
 
 els.storeName.addEventListener('input', () => {
-  storeInfo.name = els.storeName.value;
+  storeInfo.name = sanitizeInput(els.storeName, cleanStoreName);
   saveStoreInfo();
   renderStoreLabel();
 });
 els.storeNumber.addEventListener('input', () => {
-  storeInfo.number = els.storeNumber.value;
+  storeInfo.number = sanitizeInput(els.storeNumber, cleanStoreNumber);
   saveStoreInfo();
   renderStoreLabel();
 });
@@ -2004,7 +2082,8 @@ els.exportBtn.addEventListener('click', () => {
   const safeNumber = (storeInfo.number || '').trim().replace(/[^a-z0-9]+/gi, '');
   const a = document.createElement('a');
   a.href = url;
-  a.download = `data-${safeName}${safeNumber ? '-' + safeNumber : ''}.json`;
+  // named to drop straight into stores/ as-is — see tools/build-stores.js
+  a.download = safeNumber ? `data-${safeNumber}.json` : `data-${safeName}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -2054,15 +2133,29 @@ els.syncBtn.addEventListener('click', () => {
 
 els.sortSelect.value = state.sort;
 els.scanSortMode.value = scanListSort;
+if (ACTIVE_STORE !== '000') {
+  els.aisleEditorLink.href = `aisle-editor.html?store=${encodeURIComponent(ACTIVE_STORE)}`;
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
   await initData();
+  initStoreSelect();
+
+  // first visit to a store: adopt its data.json store name/number as the
+  // label, without clobbering a name an admin already typed in by hand
+  if (!storeInfo.name && !storeInfo.number && DATA.store) {
+    storeInfo = { name: DATA.store.name || '', number: DATA.store.number || '' };
+    saveStoreInfo();
+  }
+
   state.aisle = DATA.aisles[0] || 'All';
   renderAisleTabs();
   renderScanListBadge();
   render();
 
-  if (dataSource === 'local' && publishedData && JSON.stringify(DATA) !== JSON.stringify(publishedData)) {
+  if (storeNotFound) {
+    showToast(`Store "${ACTIVE_STORE}" not found — showing the default catalog`);
+  } else if (dataSource === 'local' && publishedData && JSON.stringify(DATA) !== JSON.stringify(publishedData)) {
     showActionToast('A newer data.json is available.', 'Sync now', () => els.syncBtn.click());
   } else {
     maybeShowLongPressHint();

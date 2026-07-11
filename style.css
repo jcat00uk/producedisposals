@@ -186,6 +186,19 @@ select option {
   padding-bottom: 8px;
 }
 
+.store-select {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
 .filter-panel {
   background: var(--panel);
   border-top: 1px dashed var(--line);

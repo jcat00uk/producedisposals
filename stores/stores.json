@@ -1,0 +1,12 @@
+[
+  {
+    "number": "000",
+    "name": "Default",
+    "file": "data.json"
+  },
+  {
+    "number": "0751",
+    "name": "Chaddesden",
+    "file": "stores/data-0751.json"
+  }
+]

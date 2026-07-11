@@ -130,18 +130,33 @@
 <h1>Crate Log — Editor</h1>
 <p class="sub">Aisles, categories and products for the produce finder. Categories own an aisle — change a category's aisle here and every product in it moves with it.</p>
 
+<div class="toolbar" style="margin-bottom:6px;">
+  <label for="editorStoreSelect" style="font-size:12px;color:var(--text-muted);">Store:</label>
+  <select id="editorStoreSelect">
+    <option value="000">000 — Default</option>
+    <option value="new">+ Add new store</option>
+  </select>
+</div>
+<div id="storeMetaRow" class="toolbar" hidden>
+  <input type="text" id="editorStoreName" placeholder="Store name" maxlength="25" style="flex:1;min-width:160px;">
+  <input type="text" id="editorStoreNumber" placeholder="Store #" inputmode="numeric" maxlength="4" style="width:110px;">
+  <span class="count" id="storeMetaHint">Sets the exported filename, e.g. data-0751.json</span>
+</div>
+
 <div class="toolbar">
   <span id="sourceLabel" style="font-size:12px;color:var(--text-muted);"></span>
   <button id="loadLocalBtn">Load from this browser</button>
   <input type="file" id="fileInput" accept="application/json">
   <button id="saveLocalBtn" class="secondary" disabled>Save to this browser</button>
   <button id="exportBtn" class="secondary" disabled>Export file</button>
+  <button id="emailExportBtn" class="secondary" disabled>Email to Disposals</button>
   <span class="count" id="countLabel"></span>
 </div>
 <p class="toolbar-note">
   "Save to this browser" writes here immediately — if <code>index.html</code> is hosted on
   the <strong>same site</strong>, it'll pick these changes up next time it loads (see notes below).
   "Export file" downloads a portable copy for backup or moving to another device/browser.
+  "Email to Disposals" downloads the file and opens an email addressed to Disposals@thecrazycat.com — attach the downloaded file before sending, so your store can be added to the app's store list.
 </p>
 
 <div class="restore-banner" id="restoreBanner" hidden>
@@ -228,8 +243,37 @@
 </div>
 
 <script>
-const DATA_KEY = 'cratelog_data';
+// Mirrors app.js's per-store namespacing: the default store (000) keeps the
+// original, unsuffixed key so this editor still shares state with index.html
+// on that store; any other ?store=NNNN gets its own "_NNNN" localStorage key
+// and data file, matching stores/data-NNNN.json.
+const ACTIVE_STORE = new URLSearchParams(location.search).get('store')
+  || localStorage.getItem('cratelog_active_store')
+  || '000';
+const DATA_KEY = ACTIVE_STORE === '000' ? 'cratelog_data' : `cratelog_data_${ACTIVE_STORE}`;
+function activeStoreDataFile() {
+  // 'new' isn't a real store yet — it starts from the default catalog as a
+  // template, same as opening the default store itself.
+  return (ACTIVE_STORE === '000' || ACTIVE_STORE === 'new') ? 'data.json' : `stores/data-${ACTIVE_STORE}.json`;
+}
 let DATA = null;
+
+// Sanitizes an <input> live as the user types, preserving cursor position
+// when the cleaned value differs from what's on screen.
+function sanitizeInput(el, cleanFn) {
+  const raw = el.value;
+  const cleaned = cleanFn(raw);
+  if (cleaned === raw) return cleaned;
+  const pos = Math.max(0, el.selectionStart - (raw.length - cleaned.length));
+  el.value = cleaned;
+  el.setSelectionRange(pos, pos);
+  return cleaned;
+}
+function cleanStoreNumber(v) { return v.replace(/[^0-9]/g, '').slice(0, 4); }
+function cleanStoreName(v) {
+  return v.replace(/[^a-zA-Z ]/g, '').replace(/ {2,}/g, ' ').slice(0, 25)
+    .toLowerCase().replace(/(^|\s)[a-z]/g, c => c.toUpperCase());
+}
 
 const AUTO_RULES = [
   { kw: ['banana'], aisle: 'Fruit', category: 'Bananas' },
@@ -263,12 +307,17 @@ function autoSuggest(name) {
 }
 
 const els = {
+  editorStoreSelect: document.getElementById('editorStoreSelect'),
   sourceLabel: document.getElementById('sourceLabel'),
   loadLocalBtn: document.getElementById('loadLocalBtn'),
   fileInput: document.getElementById('fileInput'),
   saveLocalBtn: document.getElementById('saveLocalBtn'),
   exportBtn: document.getElementById('exportBtn'),
+  emailExportBtn: document.getElementById('emailExportBtn'),
   countLabel: document.getElementById('countLabel'),
+  storeMetaRow: document.getElementById('storeMetaRow'),
+  editorStoreName: document.getElementById('editorStoreName'),
+  editorStoreNumber: document.getElementById('editorStoreNumber'),
   mainArea: document.getElementById('mainArea'),
   emptyNotice: document.getElementById('emptyNotice'),
   tbody: document.getElementById('tbody'),
@@ -302,6 +351,33 @@ const els = {
   restoreBtn: document.getElementById('restoreBtn'),
   discardRestoreBtn: document.getElementById('discardRestoreBtn'),
 };
+
+// Lists every store from stores/stores.json (same manifest index.html's
+// dropdown reads) plus a fixed "+ Add new store" option. A missing/
+// unreachable manifest just leaves the dropdown at its static Default +
+// Add new store fallback already in the HTML.
+async function initStoreSelect() {
+  let manifest;
+  try {
+    const res = await fetch('stores/stores.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    manifest = await res.json();
+    if (!Array.isArray(manifest)) return;
+  } catch (e) {
+    return;
+  }
+  const storeOptions = manifest.map(s => `<option value="${s.number}">${s.number} — ${s.name}</option>`).join('');
+  els.editorStoreSelect.innerHTML = storeOptions + '<option value="new">+ Add new store</option>';
+  els.editorStoreSelect.value = ACTIVE_STORE;
+}
+initStoreSelect();
+
+els.editorStoreSelect.addEventListener('change', () => {
+  const num = els.editorStoreSelect.value;
+  const url = new URL(location.href);
+  if (num === '000') url.searchParams.delete('store'); else url.searchParams.set('store', num);
+  location.href = url.toString();
+});
 
 function loadFromBrowser() {
   const raw = localStorage.getItem(DATA_KEY);
@@ -348,8 +424,20 @@ els.fileInput.addEventListener('change', (e) => {
 function activate() {
   els.saveLocalBtn.disabled = false;
   els.exportBtn.disabled = false;
+  els.emailExportBtn.disabled = false;
+  if (!DATA.store) DATA.store = { name: '', number: '' };
+  els.editorStoreName.value = DATA.store.name || '';
+  els.editorStoreNumber.value = DATA.store.number || '';
+  els.storeMetaRow.hidden = false;
   render();
 }
+
+els.editorStoreName.addEventListener('input', () => {
+  DATA.store.name = sanitizeInput(els.editorStoreName, cleanStoreName);
+});
+els.editorStoreNumber.addEventListener('input', () => {
+  DATA.store.number = sanitizeInput(els.editorStoreNumber, cleanStoreNumber);
+});
 
 function saveToBrowser() {
   localStorage.setItem(DATA_KEY, JSON.stringify(DATA));
@@ -357,14 +445,38 @@ function saveToBrowser() {
 }
 els.saveLocalBtn.addEventListener('click', saveToBrowser);
 
-els.exportBtn.addEventListener('click', () => {
+function exportFilename() {
+  // named from the store number field (not the URL's ?store=) so a brand-new
+  // store typed in here exports correctly even with no ?store= param yet
+  const number = ((DATA.store && DATA.store.number) || '').trim().replace(/[^a-z0-9]+/gi, '');
+  return (!number || number === '000') ? 'data.json' : `data-${number}.json`;
+}
+
+function downloadDataFile() {
   const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'data.json';
+  a.download = exportFilename();
   a.click();
   URL.revokeObjectURL(url);
+}
+
+els.exportBtn.addEventListener('click', downloadDataFile);
+
+// Browsers won't let a web page attach a file to an email for you (a real,
+// deliberate anti-spam limitation) — so this downloads the file, then opens
+// a pre-addressed email and tells the user to attach what just downloaded.
+const DISPOSALS_EMAIL = 'Disposals@thecrazycat.com';
+els.emailExportBtn.addEventListener('click', () => {
+  const filename = exportFilename();
+  alert(`This downloads "${filename}" and opens an email to ${DISPOSALS_EMAIL}, so your store can be added to the app's store list.\n\nAttach the downloaded file to that email before sending it.`);
+  downloadDataFile();
+  const storeLabel = [DATA.store && DATA.store.name, DATA.store && DATA.store.number ? '#' + DATA.store.number : '']
+    .filter(Boolean).join(' ');
+  const subject = `Store data${storeLabel ? ' — ' + storeLabel : ''}`;
+  const body = `Hi,\n\nOur store's data file (${filename}) just downloaded to this device — please find it attached.\n\nThis is so our store can be added to the app's store list.\n\nThanks!`;
+  window.location.href = `mailto:${DISPOSALS_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 });
 
 /* ---------------- Render root ---------------- */
@@ -881,7 +993,7 @@ els.discardRestoreBtn.addEventListener('click', () => {
 
   let fetched = null;
   try {
-    const res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    const res = await fetch(activeStoreDataFile() + '?t=' + Date.now(), { cache: 'no-store' });
     if (res.ok) {
       const parsed = await res.json();
       if (parsed && parsed.products && parsed.categories && parsed.aisles) fetched = parsed;
@@ -890,9 +1002,16 @@ els.discardRestoreBtn.addEventListener('click', () => {
 
   if (fetched) {
     DATA = fetched;
-    els.sourceLabel.textContent = 'Editing: loaded from data.json';
+    if (ACTIVE_STORE === 'new') {
+      // starting a new store from the default catalog as a template — the
+      // identity fields are for the new store, not a copy of Default's
+      DATA.store = { name: '', number: '' };
+      els.sourceLabel.textContent = 'Editing: new store, based on the default catalog';
+    } else {
+      els.sourceLabel.textContent = 'Editing: loaded from data.json';
+    }
     activate();
-    if (local && JSON.stringify(local) !== JSON.stringify(fetched)) {
+    if (ACTIVE_STORE !== 'new' && local && JSON.stringify(local) !== JSON.stringify(fetched)) {
       els.restoreBannerText.textContent = 'This browser has unsaved local edits that differ from data.json.';
       els.restoreBanner.hidden = false;
     }
