@@ -3,3 +3,10 @@ nppBackup/
 files.zip
 products.json.old
 build-stores.bat
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
