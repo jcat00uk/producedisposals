@@ -650,7 +650,7 @@ const BASE_DATA = {
 };
 
 /* ============================================================
-   Crate Log — produce finder / QR reference tool
+   Disposals — produce finder / QR reference tool
    Pure lookup tool: find a product, scan its QR with your
    handheld disposal scanner. No disposal logging happens here.
 

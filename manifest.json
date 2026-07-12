@@ -1,6 +1,6 @@
 {
-  "name": "Crate Log — Waste Disposal",
-  "short_name": "Crate Log",
+  "name": "Disposals — Produce Waste",
+  "short_name": "Disposals",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1B211D",
