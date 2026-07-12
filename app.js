@@ -1345,8 +1345,9 @@ function closeScanAddModal() {
 function refreshScanAddPrefill() {
   if (!pendingScanSku) return;
   const existing = findScanEntry(pendingScanSku, els.scanAddReason.value);
+  const product = DATA.products.find(x => x.sku === pendingScanSku);
   const qty = existing ? existing.qty : 1;
-  const unit = existing ? existing.unit : 'units';
+  const unit = existing ? existing.unit : (product && product.unit) || 'units';
   els.scanAddQty.value = qty;
   els.scanAddUnit.value = unit;
   els.scanAddQty.step = unit === 'kg' ? '0.1' : '1';
@@ -1724,14 +1725,17 @@ async function shareScanListImage() {
   if (!blob) { showToast('Could not generate the image'); return; }
 
   const file = new File([blob], 'scan-list.png', { type: 'image/png' });
+  let fallbackReason = null;
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'Scan list' });
       return;
     } catch (e) {
       if (e.name === 'AbortError') return; // user backed out of the share sheet
-      // fall through to a plain download
+      fallbackReason = e.name;
     }
+  } else {
+    fallbackReason = 'unsupported';
   }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1741,34 +1745,54 @@ async function shareScanListImage() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  showToast('Image downloaded');
+  showToast(fallbackReason ? `Image downloaded (share sheet: ${fallbackReason})` : 'Image downloaded');
 }
 
 els.scanShareBtn.addEventListener('click', shareScanListImage);
 
 /* ---------------- Scan list: share as interactive HTML ---------------- */
 
-const QRCODE_LIB_URL = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-let qrcodeLibSourceCache = null;
-
-// Fetches the same qrcodejs build the page already loaded, so the exported
-// file can generate its own QR codes offline with no dependency on the CDN
-// still being reachable on whatever device opens it later.
-async function getQrcodeLibSource() {
-  if (qrcodeLibSourceCache) return qrcodeLibSourceCache;
-  const res = await fetch(QRCODE_LIB_URL);
-  if (!res.ok) throw new Error('qrcode lib fetch failed');
-  qrcodeLibSourceCache = await res.text();
-  return qrcodeLibSourceCache;
+// Renders a QR code to a PNG data URI on *this* device (which is already
+// running the app's JS) rather than shipping the qrcodejs library inside
+// the exported file for the *recipient's* device to run. That matters
+// because some in-app viewers (WhatsApp's iOS document preview, notably)
+// render shared HTML without executing scripts at all — a QR generated
+// client-side on open would just never appear. A baked-in <img> works
+// everywhere, no JS required to see it.
+function generateQrDataUri(text) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed; left:-9999px; top:0;';
+  document.body.appendChild(holder);
+  // eslint-disable-next-line no-undef
+  new QRCode(holder, { text, width: 240, height: 240, colorDark: '#1B211D', colorLight: '#ffffff' });
+  const canvas = holder.querySelector('canvas');
+  const dataUri = canvas ? canvas.toDataURL('image/png') : null;
+  holder.remove();
+  return dataUri;
 }
 
-function buildInteractiveScanExportHtml(list, qrcodeLibSource) {
+function buildInteractiveScanExportHtml(list) {
   const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   const storeLine = [DATA.store && DATA.store.name, DATA.store && DATA.store.number ? `#${DATA.store.number}` : ''].filter(Boolean).join(' ');
   const subLine = [storeLine, dateStr, `${list.length} item${list.length === 1 ? '' : 's'}`].filter(Boolean).join(' — ');
-  const items = list.map(p => ({ name: p.name, sku: p.sku, qty: p.qty, unit: p.unit, reason: p.reason }));
-  // guards against a stray "</script" in item data breaking out of the embedded JSON
-  const itemsJson = JSON.stringify(items).replace(/<\/script/gi, '<\\/script');
+
+  const rowsHtml = list.map((p, i) => {
+    const qtyLabel = p.unit === 'kg' ? `${p.qty}kg` : `${p.qty} ${p.unit}`;
+    const qrDataUri = generateQrDataUri(p.sku);
+    return `
+    <div class="row" data-index="${i}">
+      <div class="info">
+        <div class="name">${escapeHtml(p.name)}</div>
+        <div class="meta">
+          <span class="sku-text">SKU ${escapeHtml(p.sku)}</span>
+          <span class="qty-badge">${escapeHtml(qtyLabel)}</span>
+          <span class="qty-badge reason-badge">${escapeHtml(p.reason)}</span>
+          <span class="lock-tag">🔒 locked</span>
+        </div>
+      </div>
+      <div class="qr">${qrDataUri ? `<img src="${qrDataUri}" alt="QR code for SKU ${escapeHtml(p.sku)}">` : ''}</div>
+    </div>`;
+  }).join('');
 
   return `<!doctype html>
 <html lang="en">
@@ -1776,7 +1800,6 @@ function buildInteractiveScanExportHtml(list, qrcodeLibSource) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scan list — ${escapeHtml(dateStr)}</title>
-<script>${qrcodeLibSource}</script>
 <style>
 :root{
   --bg:#1B211D; --panel:#232B24; --panel-raised:#2A332B; --line:#3A443C;
@@ -1833,10 +1856,6 @@ body{
   font-family:var(--font-mono);
 }
 .foot{ margin-top:18px; text-align:center; color:var(--text-muted); font-size:11px; }
-.noscript-note{
-  margin-top:14px; padding:12px; background:#4a2a1f; border:1px solid #7a4530;
-  border-radius:var(--radius); font-size:13px; line-height:1.5;
-}
 </style>
 </head>
 <body>
@@ -1846,45 +1865,12 @@ body{
     <div class="sub">${escapeHtml(subLine)}</div>
     <div class="note">Tap an item to bring up its QR code for scanning. Quantities are locked — this is a snapshot, not a live list.</div>
   </div>
-  <noscript>
-    <div class="noscript-note">This looks like a quick preview with JavaScript switched off, so the list below can't draw itself. On iPhone: tap Share → <b>Open in Safari</b> (or Open in Browser) instead of viewing it inline in Messages/Mail.</div>
-  </noscript>
-  <div class="list" id="list"></div>
+  <div class="list" id="list">${rowsHtml}</div>
   <div class="foot">Read-only export · generated on device, not synced</div>
 </div>
 <script>
-const items = ${itemsJson};
 const listEl = document.getElementById('list');
-
-items.forEach((p, i) => {
-  const row = document.createElement('div');
-  row.className = 'row';
-  row.dataset.index = i;
-  const qtyLabel = p.unit === 'kg' ? \`\${p.qty}kg\` : \`\${p.qty} \${p.unit}\`;
-
-  row.innerHTML = \`
-    <div class="info">
-      <div class="name"></div>
-      <div class="meta">
-        <span class="sku-text"></span>
-        <span class="qty-badge"></span>
-        <span class="qty-badge reason-badge"></span>
-        <span class="lock-tag">🔒 locked</span>
-      </div>
-    </div>
-    <div class="qr"></div>
-  \`;
-  row.querySelector('.name').textContent = p.name;
-  row.querySelector('.sku-text').textContent = 'SKU ' + p.sku;
-  row.querySelector('.qty-badge').textContent = qtyLabel;
-  row.querySelector('.reason-badge').textContent = p.reason;
-  listEl.appendChild(row);
-
-  // eslint-disable-next-line no-undef
-  new QRCode(row.querySelector('.qr'), {
-    text: p.sku, width: 200, height: 200, colorDark: '#1B211D', colorLight: '#ffffff'
-  });
-
+listEl.querySelectorAll('.row').forEach(row => {
   row.addEventListener('click', () => {
     const wasActive = row.classList.contains('active');
     listEl.querySelectorAll('.row').forEach(r => r.classList.remove('active'));
@@ -1905,26 +1891,23 @@ items.forEach((p, i) => {
 async function shareScanListInteractive() {
   const list = getScanListProducts();
   if (!list.length) { showToast('Scan list is empty'); return; }
+  if (typeof QRCode !== 'function') { showToast("Couldn't reach the QR library — check your connection"); return; }
 
-  let qrcodeLibSource;
-  try {
-    qrcodeLibSource = await getQrcodeLibSource();
-  } catch (e) {
-    showToast("Couldn't reach the QR library — check your connection");
-    return;
-  }
-
-  const html = buildInteractiveScanExportHtml(list, qrcodeLibSource);
+  const html = buildInteractiveScanExportHtml(list);
   const blob = new Blob([html], { type: 'text/html' });
   const file = new File([blob], 'scan-list.html', { type: 'text/html' });
 
+  let fallbackReason = null;
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'Scan list' });
       return;
     } catch (e) {
       if (e.name === 'AbortError') return;
+      fallbackReason = e.name;
     }
+  } else {
+    fallbackReason = 'unsupported';
   }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1934,7 +1917,7 @@ async function shareScanListInteractive() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  showToast('Interactive list downloaded');
+  showToast(fallbackReason ? `Interactive list downloaded (share sheet: ${fallbackReason})` : 'Interactive list downloaded');
 }
 
 els.scanShareInteractiveBtn.addEventListener('click', shareScanListInteractive);

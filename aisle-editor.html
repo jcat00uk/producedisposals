@@ -44,12 +44,13 @@
   select option { background: var(--panel-raised); color: var(--text); }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-  thead th:nth-child(1), tbody td:nth-child(1) { width: 34%; }
-  thead th:nth-child(2), tbody td:nth-child(2) { width: 30%; }
-  thead th:nth-child(3), tbody td:nth-child(3) { width: 12%; }
+  thead th:nth-child(1), tbody td:nth-child(1) { width: 30%; }
+  thead th:nth-child(2), tbody td:nth-child(2) { width: 26%; }
+  thead th:nth-child(3), tbody td:nth-child(3) { width: 10%; }
   thead th:nth-child(4), tbody td:nth-child(4) { width: 14%; }
-  thead th:nth-child(5), tbody td:nth-child(5) { width: 6%; }
-  thead th:nth-child(6), tbody td:nth-child(6) { width: 4%; }
+  thead th:nth-child(5), tbody td:nth-child(5) { width: 10%; }
+  thead th:nth-child(6), tbody td:nth-child(6) { width: 6%; }
+  thead th:nth-child(7), tbody td:nth-child(7) { width: 4%; }
   thead th {
     text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line);
     color: var(--text-muted); font-weight: 600; position: sticky; top: 0;
@@ -235,6 +236,7 @@
           <th style="width:230px">Category</th>
           <th style="width:90px">Aisle</th>
           <th style="width:100px">SKU</th>
+          <th style="width:90px">Unit</th>
           <th style="width:36px">Fav</th>
           <th style="width:30px"></th>
         </tr>
@@ -256,6 +258,9 @@
       <select id="apFallbackAisle"></select>
     </label>
     <label>SKU (required)<input type="text" id="apSku" placeholder="e.g. 1198850" required></label>
+    <label>Unit
+      <select id="apUnit"></select>
+    </label>
     <p class="dupe-warning" id="apDupeWarning" hidden></p>
     <div class="modal-actions">
       <button id="apCancel" class="secondary">Cancel</button>
@@ -279,6 +284,12 @@ function activeStoreDataFile() {
   return (ACTIVE_STORE === '000' || ACTIVE_STORE === 'new') ? 'data.json' : `stores/data-${ACTIVE_STORE}.json`;
 }
 let DATA = null;
+
+const UNIT_OPTIONS = [
+  { value: 'units', label: 'units' },
+  { value: 'cases', label: 'cases' },
+  { value: 'kg', label: 'kg' },
+];
 
 // Sanitizes an <input> live as the user types, preserving cursor position
 // when the cleaned value differs from what's on screen.
@@ -365,6 +376,7 @@ const els = {
   apFallbackWrap: document.getElementById('apFallbackWrap'),
   apFallbackAisle: document.getElementById('apFallbackAisle'),
   apSku: document.getElementById('apSku'),
+  apUnit: document.getElementById('apUnit'),
   apDupeWarning: document.getElementById('apDupeWarning'),
   apSave: document.getElementById('apSave'),
   apCancel: document.getElementById('apCancel'),
@@ -383,24 +395,38 @@ const els = {
 // dropdown reads) plus a fixed "+ Add new store" option. A missing/
 // unreachable manifest just leaves the dropdown at its static Default +
 // Add new store fallback already in the HTML.
+//
+// The select stays disabled for the duration of the fetch: it starts
+// populated with only the static fallback options, and swapping its
+// innerHTML out from under a click the user made while those were still
+// showing would select whatever ended up in that same list position —
+// not what they actually clicked on.
 async function initStoreSelect() {
+  els.editorStoreSelect.disabled = true;
   let manifest;
   try {
     const res = await fetch('stores/stores.json?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) return;
     manifest = await res.json();
     if (!Array.isArray(manifest)) return;
+    const storeOptions = manifest.map(s => `<option value="${s.number}">${s.number} — ${s.name}</option>`).join('');
+    els.editorStoreSelect.innerHTML = storeOptions + '<option value="new">+ Add new store</option>';
+    els.editorStoreSelect.value = ACTIVE_STORE;
   } catch (e) {
-    return;
+    // leave the static fallback options in place
+  } finally {
+    els.editorStoreSelect.disabled = false;
   }
-  const storeOptions = manifest.map(s => `<option value="${s.number}">${s.number} — ${s.name}</option>`).join('');
-  els.editorStoreSelect.innerHTML = storeOptions + '<option value="new">+ Add new store</option>';
-  els.editorStoreSelect.value = ACTIVE_STORE;
 }
 initStoreSelect();
 
 els.editorStoreSelect.addEventListener('change', () => {
   const num = els.editorStoreSelect.value;
+  // Persist the pick even for '000': ACTIVE_STORE falls back to this key
+  // when the URL has no ?store= param, so leaving it stale here would
+  // send a "Default" selection right back to whatever store was last
+  // active (e.g. from a prior index.html session) instead of Default.
+  localStorage.setItem('cratelog_active_store', num);
   const url = new URL(location.href);
   if (num === '000') url.searchParams.delete('store'); else url.searchParams.set('store', num);
   location.href = url.toString();
@@ -862,6 +888,21 @@ function buildRow(p) {
   skuTd.appendChild(skuWarn);
   tr.appendChild(skuTd);
 
+  const unitTd = document.createElement('td');
+  const unitSelect = document.createElement('select');
+  UNIT_OPTIONS.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.value; opt.textContent = u.label;
+    if ((p.unit || 'units') === u.value) opt.selected = true;
+    unitSelect.appendChild(opt);
+  });
+  unitSelect.addEventListener('change', () => {
+    p.unit = unitSelect.value;
+    tr.classList.add('row-changed');
+  });
+  unitTd.appendChild(unitSelect);
+  tr.appendChild(unitTd);
+
   const favTd = document.createElement('td');
   const favInput = document.createElement('input');
   favInput.type = 'checkbox';
@@ -933,6 +974,7 @@ function openAddProductModal() {
     [...DATA.categories].sort((a, b) => a.name.localeCompare(b.name))
       .map(c => `<option value="${c.name}">${c.name}</option>`).join('');
   els.apFallbackAisle.innerHTML = DATA.aisles.map(a => `<option value="${a}">${a}</option>`).join('');
+  els.apUnit.innerHTML = UNIT_OPTIONS.map(u => `<option value="${u.value}">${u.label}</option>`).join('');
   updateApFallbackVisibility();
   els.addProductModal.hidden = false;
   els.apName.focus();
@@ -989,7 +1031,7 @@ els.apSave.addEventListener('click', () => {
   }
 
   const category = els.apCategory.value;
-  const product = { id: sku, name, category, sku };
+  const product = { id: sku, name, category, sku, unit: els.apUnit.value };
   if (!category) product.fallbackAisle = els.apFallbackAisle.value;
   DATA.products.push(product);
 

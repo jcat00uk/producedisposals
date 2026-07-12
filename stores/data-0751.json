@@ -92,7 +92,8 @@
       "id": "1198850",
       "name": "AB Jersey New Potatoes Loose",
       "category": "Potatoes (892)",
-      "sku": "1198850"
+      "sku": "1198850",
+      "unit": "kg"
     },
     {
       "id": "6026956",
@@ -110,7 +111,8 @@
       "id": "1193961",
       "name": "JS Baking Potatoes Loose",
       "category": "Potatoes (892)",
-      "sku": "1193961"
+      "sku": "1193961",
+      "unit": "kg"
     },
     {
       "id": "6617773",
@@ -128,19 +130,22 @@
       "id": "1192001",
       "name": "JS Broccoli Loose",
       "category": "Brassicas (895)",
-      "sku": "1192001"
+      "sku": "1192001",
+      "unit": "kg"
     },
     {
       "id": "1197105",
       "name": "JS Brussels Sprouts Loose",
       "category": "Brassicas (895)",
-      "sku": "1197105"
+      "sku": "1197105",
+      "unit": "kg"
     },
     {
       "id": "1197303",
       "name": "JS Butternut Squash Loose",
       "category": "Aubergine & Squash (880)",
-      "sku": "1197303"
+      "sku": "1197303",
+      "unit": "kg"
     },
     {
       "id": "5494",
@@ -152,7 +157,8 @@
       "id": "1192049",
       "name": "JS Carrots Loose",
       "category": "Root Vegetables (894)",
-      "sku": "1192049"
+      "sku": "1192049",
+      "unit": "kg"
     },
     {
       "id": "7680910",
@@ -188,7 +194,8 @@
       "id": "1192070",
       "name": "JS Closed Cup White Mushrooms Loose",
       "category": "Mushrooms (891)",
-      "sku": "1192070"
+      "sku": "1192070",
+      "unit": "kg"
     },
     {
       "id": "475020",
@@ -206,7 +213,8 @@
       "id": "1192056",
       "name": "JS Courgettes Loose",
       "category": "Aubergine & Squash (880)",
-      "sku": "1192056"
+      "sku": "1192056",
+      "unit": "kg"
     },
     {
       "id": "7983670",
@@ -230,13 +238,15 @@
       "id": "1196757",
       "name": "JS Fairtrade Bananas Loose",
       "category": "Bananas (888)",
-      "sku": "1196757"
+      "sku": "1196757",
+      "unit": "kg"
     },
     {
       "id": "1197211",
       "name": "JS Fennel Loose",
       "category": "World Foods (882)",
-      "sku": "1197211"
+      "sku": "1197211",
+      "unit": "kg"
     },
     {
       "id": "3476",
@@ -266,7 +276,8 @@
       "id": "1198621",
       "name": "JS Ginger Loose",
       "category": "Cooks Ingredients (873)",
-      "sku": "1198621"
+      "sku": "1198621",
+      "unit": "kg"
     },
     {
       "id": "7533845",
@@ -332,7 +343,8 @@
       "id": "1193954",
       "name": "JS Leeks Loose",
       "category": "Root Vegetables (894)",
-      "sku": "1193954"
+      "sku": "1193954",
+      "unit": "kg"
     },
     {
       "id": "93",
@@ -368,7 +380,8 @@
       "id": "1192094",
       "name": "JS Onions Loose",
       "category": "Onions (654)",
-      "sku": "1192094"
+      "sku": "1192094",
+      "unit": "kg"
     },
     {
       "id": "1236637",
@@ -398,7 +411,8 @@
       "id": "1197099",
       "name": "JS Parsnips Loose",
       "category": "Root Vegetables (894)",
-      "sku": "1197099"
+      "sku": "1197099",
+      "unit": "kg"
     },
     {
       "id": "8142103",
@@ -428,7 +442,8 @@
       "id": "8144869",
       "name": "JS Plantain Loose",
       "category": "World Foods (882)",
-      "sku": "8144869"
+      "sku": "8144869",
+      "unit": "kg"
     },
     {
       "id": "217743",
@@ -452,7 +467,8 @@
       "id": "1195477",
       "name": "JS Red Onions Loose",
       "category": "Onions (654)",
-      "sku": "1195477"
+      "sku": "1195477",
+      "unit": "kg"
     },
     {
       "id": "1236644",
@@ -518,7 +534,8 @@
       "id": "1192131",
       "name": "JS Tomatoes Loose",
       "category": "Tomatoes (881)",
-      "sku": "1192131"
+      "sku": "1192131",
+      "unit": "kg"
     },
     {
       "id": "209632",
